@@ -4,13 +4,13 @@
 
 一个 DeepSeek Harness 插件，通过对话查询并管理 JumpServer 资产，使用 JumpServer 的 AccessKeyID/AccessKeySecret（HTTP Signature）进行鉴权。
 
-> 项目状态：v0.8.0。已实现资产、用户、账号、授权规则、会话、命令审计、用户组、命令过滤规则的只读查询，以及资产、账号、用户、资产授权规则、用户组、命令组、命令过滤规则的创建/更新/删除，以及用户的密码/MFA/SSH 密钥重置——均需经过强制的原生用户审批。考虑到 JumpServer 作为堡垒机/PAM 系统的角色，终止会话和工单审批目前有意保留不实现。
+> 项目状态：v0.9.0。已实现资产、用户、账号、授权规则、会话、命令审计、用户组、命令过滤规则、资产树节点、RBAC 角色/角色绑定的只读查询，以及资产、账号、用户、资产授权规则、用户组、命令组、命令过滤规则、资产树节点（包括将节点移动到新父节点）、自定义 RBAC 角色/角色绑定的创建/更新/删除，以及用户的密码/MFA/SSH 密钥重置——均需经过强制的原生用户审批。考虑到 JumpServer 作为堡垒机/PAM 系统的角色，终止会话和工单审批目前有意保留不实现。
 
 ## 为什么用 dsh-jumpserver
 
-- 按关键字或过滤条件查询 JumpServer 的资产、用户、账号、资产授权规则、终端会话、已执行命令、用户组和命令过滤规则。
-- 创建、更新、删除资产、账号、用户、资产授权规则、用户组、命令组、命令过滤规则，以及重置用户的密码/MFA/SSH 密钥——每次写操作执行前都必须经过明确的原生用户审批提示，模型无法绕过。
-- 拒绝删除或重置超级管理员（管理员）账号的密码，也拒绝创建"授予所有权限"式的宽泛资产授权规则或命令过滤规则——这两点都由工具自身强制执行，不只是写在文档里的约定。
+- 按关键字或过滤条件查询 JumpServer 的资产、用户、账号、资产授权规则、终端会话、已执行命令、用户组、命令过滤规则、资产树节点和 RBAC 角色/角色绑定。
+- 创建、更新、删除资产、账号、用户、资产授权规则、用户组、命令组、命令过滤规则、资产树节点（包括将节点移动到新父节点）、自定义 RBAC 角色/角色绑定，以及重置用户的密码/MFA/SSH 密钥——每次写操作执行前都必须经过明确的原生用户审批提示，模型无法绕过。
+- 拒绝删除或重置超级管理员（管理员）账号的密码，拒绝创建"授予所有权限"式的宽泛资产授权规则或命令过滤规则，拒绝重命名/删除组织根节点或删除仍含资产的节点，也拒绝修改或删除内置 RBAC 角色、或删除仍绑定用户的角色——以上均由工具自身强制执行，不只是写在文档里的约定。
 - 只读查询绝不泄露敏感信息：账号的密钥/密钥密码，以及用户的密码/公钥/MFA 密钥，在返回给模型前会被逐字段剔除，即便 JumpServer API 本身返回了这些字段。
 - 使用 JumpServer 官方开发文档中记录的 AccessKeyID/AccessKeySecret 签名机制（`hmac-sha256` HTTP Signature）进行鉴权。
 - AccessKeySecret 保存在本地 DSH 凭证库中，永远不会被回显到浏览器。
@@ -114,6 +114,20 @@ allowInsecureHttp: false
 | `jumpserver_create_command_filter` | **写操作。** 创建命令过滤规则（必填 `name`、`users`、`assets`、`accounts`、`commandGroupIds`，均须为非空 UUID 数组；可选 `action`——`reject`/`warning`/`accept`，默认 `reject`——`priority`、`comment`、`isActive`）。拒绝"全部用户"/"全部资产"/"全部账号"式的宽泛范围——不提供这类选项。将 `action` 设为 `accept` 会在审批提示里被标记为安全降级。需要原生用户审批。 |
 | `jumpserver_update_command_filter` | **写操作。** 按 `id` 更新已有规则；只会修改你传入的字段。传入的任何范围数组字段（`users`、`assets`、`accounts`、`commandGroupIds`）都必须非空。将 `action` 改为 `accept` 会在审批提示里被标记为安全降级。需要原生用户审批。 |
 | `jumpserver_delete_command_filter` | **写操作，不可逆。** 按 `id` 永久删除命令过滤规则。审批提示会展示该规则删除前的当前 `action`（在审批前实时查询），方便你在批准前看清是否正在移除一条生效中的 `reject`/`warning` 防护规则。需要原生用户审批。 |
+| `jumpserver_list_nodes` | 列出 JumpServer 资产树节点（资产所归属的文件夹式分组树），可按 `search` 关键字匹配完整的"/"分隔路径进行过滤。 |
+| `jumpserver_get_node` | 按 `id` 获取单个资产树节点的完整详情，包含其 key、完整路径、父节点 key 和直属资产数量。 |
+| `jumpserver_create_node` | **写操作。** 创建一个资产树节点。只传 `value` 时，会作为组织根节点的直接子节点创建；传入 `fullValue`（"/"分隔的路径）则会一次性创建/复用一整条嵌套节点链。需要原生用户审批。 |
+| `jumpserver_update_node` | **写操作。** 按 `id` 重命名已有节点（`value`）。拒绝重命名组织根节点——由 JumpServer 自身强制执行。需要原生用户审批。 |
+| `jumpserver_delete_node` | **写操作，不可逆。** 按 `id` 永久删除节点。如果该节点是组织根节点，或其子树中仍含有资产，JumpServer 会拒绝该操作。需要原生用户审批。 |
+| `jumpserver_move_node` | **写操作。** 将某个节点（及其整个子树）重新挂载到另一个父节点下（`id`、`targetParentId`）。如果会形成环路，JumpServer 会拒绝该移动操作。需要原生用户审批。 |
+| `jumpserver_list_roles` | 列出 JumpServer RBAC 角色，可按 `search` 关键字和 `scope`（`system` 或 `org`）过滤。 |
+| `jumpserver_get_role` | 按 `id` 获取单个 RBAC 角色的完整详情，包含其 scope、是否内置、备注和已绑定的权限 id。 |
+| `jumpserver_create_role` | **写操作。** 创建自定义 RBAC 角色（必填 `name`、`scope`；可选 `permissionIds`、`comment`）。创建 `scope="system"` 角色会在审批提示中被标记为高风险。需要原生用户审批。 |
+| `jumpserver_update_role` | **写操作。** 按 `id` 更新已有自定义角色；只会修改你传入的字段，且传入的 `permissionIds` 会替换整套权限集合。拒绝更新内置角色——由 JumpServer 自身强制执行。需要原生用户审批。 |
+| `jumpserver_delete_role` | **写操作，不可逆。** 按 `id` 永久删除自定义角色。如果角色是内置角色，或仍绑定至少一个用户，JumpServer 会拒绝该操作。需要原生用户审批。 |
+| `jumpserver_list_role_bindings` | 列出角色绑定（角色到用户的分配关系），可按 `userId` 或 `roleId` 过滤。 |
+| `jumpserver_create_role_binding` | **写操作。** 将角色授予某个用户（必填 `userId`、`roleId`；组织级角色必填 `orgId`，系统级角色需省略）。授予 `scope="system"` 角色会在审批提示中被标记为高风险。需要原生用户审批。 |
+| `jumpserver_delete_role_binding` | **写操作，不可逆。** 按 `id` 撤销一条角色绑定。如果这是某用户在某组织内的最后一条组织级角色绑定，JumpServer 会拒绝该操作。需要原生用户审批。 |
 
 终止会话和工单审批尚未实现，目前也没有计划实现——详见下方"范围之外"。
 

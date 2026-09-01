@@ -150,6 +150,20 @@ test('apply registers all tools (read-only + write) and a system prompt section'
     'jumpserver_create_command_filter',
     'jumpserver_update_command_filter',
     'jumpserver_delete_command_filter',
+    'jumpserver_list_nodes',
+    'jumpserver_get_node',
+    'jumpserver_create_node',
+    'jumpserver_update_node',
+    'jumpserver_delete_node',
+    'jumpserver_move_node',
+    'jumpserver_list_roles',
+    'jumpserver_get_role',
+    'jumpserver_create_role',
+    'jumpserver_update_role',
+    'jumpserver_delete_role',
+    'jumpserver_list_role_bindings',
+    'jumpserver_create_role_binding',
+    'jumpserver_delete_role_binding',
   ])
   assert.equal(sections.length, 1)
   assert.equal(sections[0].name, 'tool:jumpserver')
@@ -398,29 +412,47 @@ test('jumpserver_list_sessions filters by user/asset/isFinished and formats rows
   }
 })
 
-test('WRITE_TOOL_NAMES lists exactly the twenty-three write tools', () => {
+test('WRITE_TOOL_NAMES lists exactly the thirty-four write tools', () => {
   assert.deepEqual([...internals.WRITE_TOOL_NAMES].sort(), [
     'jumpserver_create_account',
     'jumpserver_create_asset',
     'jumpserver_create_command_filter',
     'jumpserver_create_command_group',
+    'jumpserver_create_domain',
+    'jumpserver_create_gateway',
+    'jumpserver_create_label',
+    'jumpserver_create_node',
     'jumpserver_create_permission',
+    'jumpserver_create_role',
+    'jumpserver_create_role_binding',
     'jumpserver_create_user',
     'jumpserver_create_user_group',
     'jumpserver_delete_account',
     'jumpserver_delete_asset',
     'jumpserver_delete_command_filter',
     'jumpserver_delete_command_group',
+    'jumpserver_delete_domain',
+    'jumpserver_delete_gateway',
+    'jumpserver_delete_label',
+    'jumpserver_delete_node',
     'jumpserver_delete_permission',
+    'jumpserver_delete_role',
+    'jumpserver_delete_role_binding',
     'jumpserver_delete_user',
     'jumpserver_delete_user_group',
+    'jumpserver_move_node',
     'jumpserver_reset_user_mfa',
     'jumpserver_reset_user_ssh_key',
     'jumpserver_update_account',
     'jumpserver_update_asset',
     'jumpserver_update_command_filter',
     'jumpserver_update_command_group',
+    'jumpserver_update_domain',
+    'jumpserver_update_gateway',
+    'jumpserver_update_label',
+    'jumpserver_update_node',
     'jumpserver_update_permission',
+    'jumpserver_update_role',
     'jumpserver_update_user',
     'jumpserver_update_user_group',
   ])
@@ -1810,4 +1842,523 @@ test('Config schema exposes documented defaults', () => {
   assert.equal(config.akRef, 'JUMPSERVER_ACCESS_KEY_ID')
   assert.equal(config.skRef, 'JUMPSERVER_ACCESS_KEY_SECRET')
   assert.equal(config.allowInsecureHttp, true)
+})
+
+test('isOrgRootKey recognizes numeric-only keys as the organization root, and nested keys as not', () => {
+  assert.equal(internals.isOrgRootKey('1'), true)
+  assert.equal(internals.isOrgRootKey('42'), true)
+  assert.equal(internals.isOrgRootKey('1:3'), false)
+  assert.equal(internals.isOrgRootKey('1:3:7'), false)
+  assert.equal(internals.isOrgRootKey(''), false)
+  assert.equal(internals.isOrgRootKey(undefined), false)
+})
+
+test('jumpserver_list_nodes and jumpserver_get_node format results and reject malformed ids', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url) => {
+    calls.push(String(url))
+    if (new URL(String(url)).pathname === '/api/v1/assets/nodes/') {
+      return jsonResponse({
+        count: 2,
+        results: [
+          { id: 'n-root', key: '1', value: 'Default', full_value: '/Default', assets_amount: 5 },
+          { id: 'n-child', key: '1:3', value: 'Beijing', full_value: '/Default/Beijing', assets_amount: 2 },
+        ],
+      })
+    }
+    return jsonResponse({ id: '123e4567-e89b-12d3-a456-426614174000', key: '1:3', value: 'Beijing', full_value: '/Default/Beijing', parent_key: '1', assets_amount: 2 })
+  }
+  try {
+    const { tools } = createContext()
+    const list = toolByName(tools, 'jumpserver_list_nodes')
+    const listOutput = await list.execute({}, execution())
+    assert.match(listOutput, /value="Default"/)
+    assert.match(listOutput, /is_org_root=true/)
+    assert.match(listOutput, /value="Beijing"/)
+    assert.match(listOutput, /is_org_root=false/)
+
+    const get = toolByName(tools, 'jumpserver_get_node')
+    const getOutput = await get.execute({ id: '123e4567-e89b-12d3-a456-426614174000' }, execution())
+    assert.match(getOutput, /full_value="\/Default\/Beijing"/)
+    assert.match(getOutput, /parent_key="1"/)
+    assert.match(getOutput, /is_org_root=false/)
+
+    await assert.rejects(get.execute({ id: 'not-a-uuid' }, execution()), /valid JumpServer UUID/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_create_node supports plain value (root child) or fullValue (nested path)', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    return jsonResponse({ id: 'n1', key: '1:5', value: 'Shanghai', full_value: '/Default/Shanghai' }, 201)
+  }
+  try {
+    const { tools } = createContext()
+    const create = toolByName(tools, 'jumpserver_create_node')
+
+    const byValue = await create.execute({ value: 'Shanghai' }, execution())
+    assert.match(byValue, /Node created/)
+    assert.deepEqual(JSON.parse(calls[0].init.body), { value: 'Shanghai' })
+
+    const byFullValue = await create.execute({ fullValue: 'Default/East/Shanghai' }, execution())
+    assert.match(byFullValue, /Node created/)
+    assert.deepEqual(JSON.parse(calls[1].init.body), { full_value: 'Default/East/Shanghai' })
+
+    await assert.rejects(create.execute({}, execution()), /Provide either value or fullValue/)
+    await assert.rejects(create.execute({ value: 'a/b' }, execution()), /must not contain/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_update_node checks existence first, renames, and rejects "/" in the new value', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    if ((init.method ?? 'GET') === 'GET') return jsonResponse({ id: '123e4567-e89b-12d3-a456-426614174000', key: '1:3', value: 'Beijing' })
+    return jsonResponse({ id: '123e4567-e89b-12d3-a456-426614174000', key: '1:3', value: 'Beijing-renamed', full_value: '/Default/Beijing-renamed' })
+  }
+  try {
+    const { tools } = createContext()
+    const update = toolByName(tools, 'jumpserver_update_node')
+    const output = await update.execute({ id: '123e4567-e89b-12d3-a456-426614174000', value: 'Beijing-renamed' }, execution())
+    assert.match(output, /Node updated/)
+    assert.equal(calls[0].init.method ?? 'GET', 'GET')
+    assert.equal(calls[1].init.method, 'PATCH')
+    assert.deepEqual(JSON.parse(calls[1].init.body), { value: 'Beijing-renamed' })
+
+    await assert.rejects(update.execute({ id: '123e4567-e89b-12d3-a456-426614174000', value: 'a/b' }, execution()), /must not contain/)
+    await assert.rejects(update.execute({ id: '123e4567-e89b-12d3-a456-426614174000' }, execution()), /missing required property "value"/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_update_node fails clearly when the node does not exist, without attempting the PATCH', async () => {
+  const originalFetch = globalThis.fetch
+  let patchCount = 0
+  globalThis.fetch = async (_url, init = {}) => {
+    if ((init.method ?? 'GET') === 'PATCH') { patchCount += 1; return jsonResponse({}, 200) }
+    return jsonResponse({ detail: 'Not found.' }, 404)
+  }
+  try {
+    const { tools } = createContext()
+    const update = toolByName(tools, 'jumpserver_update_node')
+    await assert.rejects(
+      update.execute({ id: '123e4567-e89b-12d3-a456-426614174000', value: 'x' }, execution()),
+      /404/,
+    )
+    assert.equal(patchCount, 0)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_delete_node refuses to delete the organization root node without calling the API', async () => {
+  const originalFetch = globalThis.fetch
+  let deleteCount = 0
+  globalThis.fetch = async (_url, init = {}) => {
+    if ((init.method ?? 'GET') === 'DELETE') { deleteCount += 1; return new Response(null, { status: 204 }) }
+    return jsonResponse({ id: '123e4567-e89b-12d3-a456-426614174000', key: '1', value: 'Default', full_value: '/Default' })
+  }
+  try {
+    const { tools } = createContext()
+    const del = toolByName(tools, 'jumpserver_delete_node')
+    await assert.rejects(
+      del.execute({ id: '123e4567-e89b-12d3-a456-426614174000' }, execution()),
+      /Cannot delete the organization root node/,
+    )
+    assert.equal(deleteCount, 0)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_delete_node checks existence first and reports the full path for a non-root node', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    if ((init.method ?? 'GET') === 'DELETE') return new Response(null, { status: 204 })
+    return jsonResponse({ id: '123e4567-e89b-12d3-a456-426614174000', key: '1:3', value: 'Beijing', full_value: '/Default/Beijing' })
+  }
+  try {
+    const { tools } = createContext()
+    const del = toolByName(tools, 'jumpserver_delete_node')
+    const output = await del.execute({ id: '123e4567-e89b-12d3-a456-426614174000' }, execution())
+    assert.match(output, /Node deleted/)
+    assert.match(output, /full_value="\/Default\/Beijing"/)
+    assert.equal(calls[1].init.method, 'DELETE')
+
+    await assert.rejects(del.execute({ id: 'not-a-uuid' }, execution()), /valid JumpServer UUID/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_move_node validates both ids exist, rejects moving a node under itself, and PATCHes the target parent\'s children endpoint', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    const path = new URL(String(url)).pathname
+    if (path === '/api/v1/assets/nodes/123e4567-e89b-12d3-a456-426614174000/') {
+      return jsonResponse({ id: '123e4567-e89b-12d3-a456-426614174000', full_value: '/Default/Beijing' })
+    }
+    if (path === '/api/v1/assets/nodes/223e4567-e89b-12d3-a456-426614174000/') {
+      return jsonResponse({ id: '223e4567-e89b-12d3-a456-426614174000', full_value: '/Default/East' })
+    }
+    if (path === '/api/v1/assets/nodes/223e4567-e89b-12d3-a456-426614174000/children/') {
+      return jsonResponse('OK')
+    }
+    return jsonResponse({ detail: 'unexpected' }, 500)
+  }
+  try {
+    const { tools } = createContext()
+    const move = toolByName(tools, 'jumpserver_move_node')
+    const output = await move.execute({
+      id: '123e4567-e89b-12d3-a456-426614174000',
+      targetParentId: '223e4567-e89b-12d3-a456-426614174000',
+    }, execution())
+    assert.match(output, /Node moved/)
+    assert.match(output, /\/Default\/Beijing/)
+    assert.match(output, /\/Default\/East/)
+
+    const childrenCall = calls.find((c) => c.url.endsWith('/children/'))
+    assert.ok(childrenCall, 'expected a call to the children endpoint')
+    assert.equal(childrenCall.init.method, 'PATCH')
+    assert.deepEqual(JSON.parse(childrenCall.init.body), { nodes: ['123e4567-e89b-12d3-a456-426614174000'] })
+
+    await assert.rejects(
+      move.execute({ id: '123e4567-e89b-12d3-a456-426614174000', targetParentId: '123e4567-e89b-12d3-a456-426614174000' }, execution()),
+      /must be different nodes/,
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_move_node surfaces the JumpServer cycle-rejection error unchanged', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async (url, init = {}) => {
+    const path = new URL(String(url)).pathname
+    if ((init.method ?? 'GET') === 'GET') return jsonResponse({ id: 'x', full_value: '/x' })
+    if (path.endsWith('/children/')) return jsonResponse({ error: "Node Beijing is an ancestor of node East, can't be added as its child" }, 400)
+    return jsonResponse({ detail: 'unexpected' }, 500)
+  }
+  try {
+    const { tools } = createContext()
+    const move = toolByName(tools, 'jumpserver_move_node')
+    await assert.rejects(
+      move.execute({ id: '123e4567-e89b-12d3-a456-426614174000', targetParentId: '223e4567-e89b-12d3-a456-426614174000' }, execution()),
+      /ancestor of node East/,
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('the tools/pre-execute gate also forces node write tools to "ask", and node reads are untouched', async () => {
+  const { listeners } = createContext()
+  const gate = listeners.get('tools/pre-execute')
+
+  for (const name of ['jumpserver_create_node', 'jumpserver_update_node', 'jumpserver_delete_node', 'jumpserver_move_node']) {
+    const decision = await gate({ name, arguments: { id: 'x', value: 'x', targetParentId: 'y' } }, async () => ({ kind: 'allow' }))
+    assert.equal(decision.kind, 'ask', `${name} should require approval`)
+  }
+
+  for (const name of ['jumpserver_list_nodes', 'jumpserver_get_node']) {
+    const decision = await gate({ name, arguments: {} }, async () => ({ kind: 'allow' }))
+    assert.deepEqual(decision, { kind: 'allow' }, `${name} is read-only and should not require approval`)
+  }
+})
+
+test('approvalReasonForWrite describes node create/update/delete/move, flagging fullValue path creation', () => {
+  assert.match(
+    internals.approvalReasonForWrite({ name: 'jumpserver_create_node', arguments: { value: 'Beijing' } }),
+    /Create a new JumpServer asset-tree node: value="Beijing", as a direct child of the organization root node/,
+  )
+  assert.match(
+    internals.approvalReasonForWrite({ name: 'jumpserver_create_node', arguments: { fullValue: 'Default/East/Beijing' } }),
+    /fullValue="Default\/East\/Beijing".*intermediate nodes/,
+  )
+  assert.match(
+    internals.approvalReasonForWrite({ name: 'jumpserver_update_node', arguments: { id: 'n1', value: 'Renamed' } }),
+    /Rename JumpServer asset-tree node id=n1 to value="Renamed"/,
+  )
+  assert.match(
+    internals.approvalReasonForWrite({ name: 'jumpserver_delete_node', arguments: { id: 'n1' } }),
+    /PERMANENTLY DELETE JumpServer asset-tree node id=n1/,
+  )
+  assert.match(
+    internals.approvalReasonForWrite({ name: 'jumpserver_move_node', arguments: { id: 'n1', targetParentId: 'n2' } }),
+    /Move JumpServer asset-tree node id=n1 .* child of node id=n2/,
+  )
+})
+
+test('jumpserver_list_roles and jumpserver_get_role format results, validate scope, and reject malformed ids', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url) => {
+    calls.push(String(url))
+    if (new URL(String(url)).pathname === '/api/v1/rbac/roles/') {
+      return jsonResponse({
+        count: 1,
+        results: [{ id: 'r1', name: 'OrgAdmin', scope: { value: 'org', label: 'Organization' }, builtin: true, users_amount: 3, permissions_amount: 42 }],
+      })
+    }
+    return jsonResponse({ id: '123e4567-e89b-12d3-a456-426614174000', name: 'Auditor', scope: { value: 'org', label: 'Organization' }, builtin: false, comment: 'custom role', permissions: ['p1', 'p2'] })
+  }
+  try {
+    const { tools } = createContext()
+    const list = toolByName(tools, 'jumpserver_list_roles')
+    const listOutput = await list.execute({ scope: 'org' }, execution())
+    assert.match(listOutput, /name="OrgAdmin"/)
+    assert.match(listOutput, /builtin=true/)
+    assert.match(new URL(calls[0]).search, /scope=org/)
+
+    await assert.rejects(list.execute({ scope: 'bogus' }, execution()), /"scope" must be one of/)
+
+    const get = toolByName(tools, 'jumpserver_get_role')
+    const getOutput = await get.execute({ id: '123e4567-e89b-12d3-a456-426614174000' }, execution())
+    assert.match(getOutput, /name="Auditor"/)
+    assert.match(getOutput, /permissions="p1,p2"/)
+
+    await assert.rejects(get.execute({ id: 'not-a-uuid' }, execution()), /valid JumpServer UUID/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_create_role requires name/scope, validates scope enum, and posts permissionIds as permissions', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    return jsonResponse({ id: 'r1', name: 'Auditor', scope: { value: 'org' } }, 201)
+  }
+  try {
+    const { tools } = createContext()
+    const create = toolByName(tools, 'jumpserver_create_role')
+    const output = await create.execute({
+      name: 'Auditor',
+      scope: 'org',
+      permissionIds: ['123e4567-e89b-12d3-a456-426614174000'],
+      comment: 'read-only audit role',
+    }, execution())
+    assert.match(output, /Role created/)
+    assert.deepEqual(JSON.parse(calls[0].init.body), {
+      name: 'Auditor',
+      scope: 'org',
+      permissions: ['123e4567-e89b-12d3-a456-426614174000'],
+      comment: 'read-only audit role',
+    })
+
+    await assert.rejects(create.execute({ scope: 'org' }, execution()), /missing required property "name"/)
+    await assert.rejects(create.execute({ name: 'X' }, execution()), /missing required property "scope"/)
+    await assert.rejects(create.execute({ name: 'X', scope: 'bogus' }, execution()), /"scope" must be one of/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_update_role refuses to update a builtin role, and PATCHes only provided fields for a custom role', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  const builtinId = '323e4567-e89b-12d3-a456-426614174000'
+  const customId = '123e4567-e89b-12d3-a456-426614174000'
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    if ((init.method ?? 'GET') === 'GET') {
+      if (String(url).includes(builtinId)) return jsonResponse({ id: builtinId, name: 'SystemAdmin', builtin: true })
+      return jsonResponse({ id: customId, name: 'Auditor', builtin: false })
+    }
+    return jsonResponse({ id: customId, name: 'Auditor-renamed', scope: { value: 'org' } })
+  }
+  try {
+    const { tools } = createContext()
+    const update = toolByName(tools, 'jumpserver_update_role')
+
+    await assert.rejects(
+      update.execute({ id: builtinId, name: 'x' }, execution()),
+      /builtin role and cannot be updated/,
+    )
+
+    const output = await update.execute({ id: customId, name: 'Auditor-renamed' }, execution())
+    assert.match(output, /Role updated/)
+    const patchCall = calls.find((c) => c.init.method === 'PATCH')
+    assert.deepEqual(JSON.parse(patchCall.init.body), { name: 'Auditor-renamed' })
+
+    await assert.rejects(update.execute({ id: customId }, execution()), /Provide at least one field/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_delete_role refuses to delete a builtin role, checks existence first, and reports name/scope', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  const builtinId = '323e4567-e89b-12d3-a456-426614174000'
+  const customId = '123e4567-e89b-12d3-a456-426614174000'
+  let deleteCount = 0
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    if ((init.method ?? 'GET') === 'DELETE') { deleteCount += 1; return new Response(null, { status: 204 }) }
+    if (String(url).includes(builtinId)) return jsonResponse({ id: builtinId, name: 'SystemAdmin', builtin: true, scope: { value: 'system' } })
+    return jsonResponse({ id: customId, name: 'Auditor', builtin: false, scope: { value: 'org' } })
+  }
+  try {
+    const { tools } = createContext()
+    const del = toolByName(tools, 'jumpserver_delete_role')
+
+    await assert.rejects(
+      del.execute({ id: builtinId }, execution()),
+      /builtin role and cannot be deleted/,
+    )
+    assert.equal(deleteCount, 0)
+
+    const output = await del.execute({ id: customId }, execution())
+    assert.match(output, /Role deleted/)
+    assert.match(output, /name="Auditor"/)
+    assert.equal(deleteCount, 1)
+
+    await assert.rejects(del.execute({ id: 'not-a-uuid' }, execution()), /valid JumpServer UUID/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_list_role_bindings filters by userId/roleId and formats results', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url) => {
+    calls.push(String(url))
+    return jsonResponse({
+      count: 1,
+      results: [{ id: 'b1', user: 'u1', user_display: 'alice', role: 'r1', role_display: 'Auditor', scope: { value: 'org' }, org: 'o1', org_name: 'Acme' }],
+    })
+  }
+  try {
+    const { tools } = createContext()
+    const list = toolByName(tools, 'jumpserver_list_role_bindings')
+    const output = await list.execute({
+      userId: '123e4567-e89b-12d3-a456-426614174000',
+      roleId: '223e4567-e89b-12d3-a456-426614174000',
+    }, execution())
+    assert.match(output, /user_display="alice"/)
+    assert.match(output, /role_display="Auditor"/)
+    const search = new URL(calls[0]).search
+    assert.match(search, /user=123e4567-e89b-12d3-a456-426614174000/)
+    assert.match(search, /role=223e4567-e89b-12d3-a456-426614174000/)
+
+    await assert.rejects(list.execute({ userId: 'not-a-uuid' }, execution()), /valid JumpServer UUID/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_create_role_binding requires orgId for org-scope roles and rejects it for system-scope roles', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  const orgRoleId = '323e4567-e89b-12d3-a456-426614174000'
+  const sysRoleId = '423e4567-e89b-12d3-a456-426614174000'
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    if ((init.method ?? 'GET') === 'GET') {
+      if (String(url).includes(orgRoleId)) return jsonResponse({ id: orgRoleId, name: 'Auditor', scope: { value: 'org' } })
+      return jsonResponse({ id: sysRoleId, name: 'SystemAdmin', scope: { value: 'system' } })
+    }
+    return jsonResponse({ id: 'b1', user: 'u1', role: orgRoleId, scope: { value: 'org' }, org: 'o1' }, 201)
+  }
+  try {
+    const { tools } = createContext()
+    const create = toolByName(tools, 'jumpserver_create_role_binding')
+
+    await assert.rejects(
+      create.execute({ userId: '123e4567-e89b-12d3-a456-426614174000', roleId: orgRoleId }, execution()),
+      /is an org-scope role; orgId is required/,
+    )
+
+    const output = await create.execute({
+      userId: '123e4567-e89b-12d3-a456-426614174000',
+      roleId: orgRoleId,
+      orgId: '223e4567-e89b-12d3-a456-426614174000',
+    }, execution())
+    assert.match(output, /Role binding created/)
+    const postCall = calls.find((c) => c.init.method === 'POST')
+    assert.deepEqual(JSON.parse(postCall.init.body), {
+      user: '123e4567-e89b-12d3-a456-426614174000',
+      role: orgRoleId,
+      org: '223e4567-e89b-12d3-a456-426614174000',
+    })
+
+    await assert.rejects(
+      create.execute({
+        userId: '123e4567-e89b-12d3-a456-426614174000',
+        roleId: sysRoleId,
+        orgId: '223e4567-e89b-12d3-a456-426614174000',
+      }, execution()),
+      /is a system-scope role; orgId must be omitted/,
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_delete_role_binding checks existence first and reports user/role display names', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init })
+    if ((init.method ?? 'GET') === 'DELETE') return new Response(null, { status: 204 })
+    return jsonResponse({ id: '123e4567-e89b-12d3-a456-426614174000', user_display: 'alice', role_display: 'Auditor' })
+  }
+  try {
+    const { tools } = createContext()
+    const del = toolByName(tools, 'jumpserver_delete_role_binding')
+    const output = await del.execute({ id: '123e4567-e89b-12d3-a456-426614174000' }, execution())
+    assert.match(output, /Role binding deleted/)
+    assert.match(output, /user="alice"/)
+    assert.match(output, /role="Auditor"/)
+    assert.equal(calls[1].init.method, 'DELETE')
+
+    await assert.rejects(del.execute({ id: 'not-a-uuid' }, execution()), /valid JumpServer UUID/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('the tools/pre-execute gate also forces role and role-binding write tools to "ask", and their reads are untouched', async () => {
+  const { listeners } = createContext()
+  const gate = listeners.get('tools/pre-execute')
+
+  for (const name of ['jumpserver_create_role', 'jumpserver_update_role', 'jumpserver_delete_role', 'jumpserver_create_role_binding', 'jumpserver_delete_role_binding']) {
+    const decision = await gate({ name, arguments: { id: 'x', name: 'x', scope: 'org', userId: 'u', roleId: 'r' } }, async () => ({ kind: 'allow' }))
+    assert.equal(decision.kind, 'ask', `${name} should require approval`)
+  }
+
+  for (const name of ['jumpserver_list_roles', 'jumpserver_get_role', 'jumpserver_list_role_bindings']) {
+    const decision = await gate({ name, arguments: {} }, async () => ({ kind: 'allow' }))
+    assert.deepEqual(decision, { kind: 'allow' }, `${name} is read-only and should not require approval`)
+  }
+})
+
+test('approvalReasonForWrite flags system-scope role creation/binding as high risk', () => {
+  const systemCreate = internals.approvalReasonForWrite({ name: 'jumpserver_create_role', arguments: { name: 'SuperRole', scope: 'system', permissionIds: ['p1'] } })
+  assert.match(systemCreate, /HIGH RISK/)
+  const orgCreate = internals.approvalReasonForWrite({ name: 'jumpserver_create_role', arguments: { name: 'OrgRole', scope: 'org', permissionIds: [] } })
+  assert.doesNotMatch(orgCreate, /HIGH RISK/)
+
+  const binding = internals.approvalReasonForWrite({ name: 'jumpserver_create_role_binding', arguments: { userId: 'u1', roleId: 'r1' } })
+  assert.match(binding, /HIGH RISK/)
+  assert.match(binding, /organization: none \(system scope\)/)
+
+  const del = internals.approvalReasonForWrite({ name: 'jumpserver_delete_role', arguments: { id: 'r1' } })
+  assert.match(del, /PERMANENTLY DELETE JumpServer RBAC role id=r1/)
 })
