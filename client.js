@@ -1,6 +1,6 @@
 // dsh-jumpserver 浏览器设置卡片。
-// AccessKeyID / AccessKeySecret 走 DSH 凭证库的 loopback same-origin RPC：仅写不读，
-// describe 只返回 configured 布尔，客户端永远不会读回明文，故以星号占位。
+// DSH 0.1.2：AccessKeyID / AccessKeySecret 走 ctx.remote.credentials（凭证库 Remote），
+// 仅写不读，describe 只返回 configured 布尔，客户端永远不会读回明文，故以星号占位。
 // baseUrl 不是敏感信息，存 settings namespace（jumpserver）：settings.describe 对
 // 非 secret 字段返回明文 value，因此保存后可直接回显核对。
 window.__ModuleLoader__.load({
@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
     const SETTINGS_NS = "jumpserver";
     // 仅用于视觉提示的占位符，永远不会写入凭证库。
     const MASK = "*".repeat(28);
-    const inject = ["slots", "connection"];
+    const inject = ["slots", "remote", "remote.credentials", "remote.settings"];
 
     const STRINGS = {
       zh: {
@@ -263,16 +263,24 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
-      const { api } = ctx.get("connection");
+      // DSH 0.1.2：APIProxy 已移除，客户端改走 ctx.remote 的 credentials/settings
+      // 命名空间（由 @deepseek-ai/dsh-api-remotes 挂载）。Remote 调用返回
+      // RemoteResult {ok:true,value}|{ok:false,error}，写操作失败须抛出以让 UI 报错。
+      const mustOk = (res) => {
+        if (!res || res.ok === false) throw (res && res.error) ?? new Error("remote call failed")
+        return res.value
+      }
       const face = {
         describe: async () => {
           // AK/SK 走凭证库（只返回 configured）；URL 走 settings namespace（非 secret，返回明文）。
+          // describe 失败时按“未配置”降级，不让设置卡片整体报错（与旧行为一致）。
           const [credRes, setRes] = await Promise.all([
-            api.credentials.describe({ refs: [AK_REF, SK_REF] }),
-            api.settings?.describe ? api.settings.describe({}) : Promise.resolve(null),
+            ctx.remote.credentials.describe([AK_REF, SK_REF]),
+            ctx.remote.settings.describe(),
           ]);
-          const creds = credRes?.result?.value?.credentials ?? {};
-          const jsNs = (setRes?.result?.value?.namespaces ?? []).find((n) => n?.ns === SETTINGS_NS);
+          const creds = credRes?.ok ? (credRes.value ?? {}) : {};
+          const namespaces = setRes?.ok ? (setRes.value?.namespaces ?? []) : [];
+          const jsNs = namespaces.find((n) => n?.ns === SETTINGS_NS);
           const baseUrl = typeof jsNs?.value?.baseUrl === "string" ? jsNs.value.baseUrl : "";
           return {
             akConfigured: creds[AK_REF]?.configured ?? false,
@@ -281,21 +289,22 @@ window.__ModuleLoader__.load({
             baseUrl,
           };
         },
-        setAk: (value) => api.credentials.set({ ref: AK_REF, value }),
-        setSk: (value) => api.credentials.set({ ref: SK_REF, value }),
+        setAk: (value) => ctx.remote.credentials.set(AK_REF, value).then(mustOk),
+        setSk: (value) => ctx.remote.credentials.set(SK_REF, value).then(mustOk),
         // URL 存 settings namespace：update 做 deep-merge，不动其它字段。
-        setBaseUrl: (value) => api.settings.update({ ns: SETTINGS_NS, patch: { baseUrl: value } }),
+        // expectedRevision 无 CAS 需求时显式传 undefined。
+        setBaseUrl: (value) => ctx.remote.settings.update(SETTINGS_NS, { baseUrl: value }, undefined).then(mustOk),
         // AK/SK 移除走凭证库。
-        unsetAk: () => api.credentials.unset({ ref: AK_REF }),
-        unsetSk: () => api.credentials.unset({ ref: SK_REF }),
+        unsetAk: () => ctx.remote.credentials.unset(AK_REF).then(mustOk),
+        unsetSk: () => ctx.remote.credentials.unset(SK_REF).then(mustOk),
         // URL 移除走 settings.mutate：浏览器只持有 redacted 视图，
         // replace wholesale 会误删 schema 里其它已存字段，故用单字段 op。
-        unsetBaseUrl: () => api.settings.mutate({ ns: SETTINGS_NS, ops: [{ op: "unset", path: ["baseUrl"] }] }),
+        unsetBaseUrl: () => ctx.remote.settings.mutate(SETTINGS_NS, [{ op: "unset", path: ["baseUrl"] }], undefined).then(mustOk),
         // 读取 GUI 的语言偏好（locale 命名空间的 preference 字段）；不可用时返回空串。
         localePreference: async () => {
-          if (!api.settings?.describe) return "";
-          const res = await api.settings.describe({});
-          const namespaces = res?.result?.value?.namespaces ?? [];
+          const res = await ctx.remote.settings.describe();
+          if (!res?.ok) return "";
+          const namespaces = res.value?.namespaces ?? [];
           const locale = namespaces.find((n) => n?.ns === "locale");
           const pref = locale?.value?.preference;
           return typeof pref === "string" ? pref : "";

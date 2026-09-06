@@ -20,7 +20,7 @@
 | 组件 | 支持的最低版本 |
 | --- | --- |
 | Node.js | 20.11 及以上 |
-| DeepSeek Harness | `0.1.0-rc.6` |
+| DeepSeek Harness | `0.1.2-rc.1` |
 | JumpServer | REST API `v1`（支持 Access Key 认证） |
 
 ## 安装
