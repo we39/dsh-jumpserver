@@ -119,6 +119,7 @@ test('apply registers all tools (read-only + write) and a system prompt section'
     'jumpserver_list_accounts',
     'jumpserver_get_account',
     'jumpserver_list_permissions',
+    'jumpserver_get_permission',
     'jumpserver_list_sessions',
     'jumpserver_create_asset',
     'jumpserver_update_asset',
@@ -387,6 +388,45 @@ test('jumpserver_list_permissions validates userId/assetId filters and formats r
     const requestUrl = new URL(calls[0])
     assert.equal(requestUrl.searchParams.get('user_id'), '123e4567-e89b-12d3-a456-426614174000')
     await assert.rejects(list.execute({ assetId: 'bad' }, execution()), /valid JumpServer UUID/)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('jumpserver_get_permission expands referenced users/assets/accounts and flags @ALL', async () => {
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.fetch = async (url) => {
+    calls.push(String(url))
+    return jsonResponse({
+      id: 'p1',
+      name: 'Role-alice',
+      is_active: true,
+      is_valid: true,
+      is_expired: false,
+      users: [{ id: 'u1', name: 'alice' }, { id: 'u2', name: 'bob' }],
+      user_groups: [{ id: 'g1', name: 'devs' }],
+      assets: [{ id: 'a1', name: 'web-01', address: '10.0.0.1' }],
+      nodes: [{ id: 'n1', full_value: '/Default/prod' }],
+      accounts: ['@ALL'],
+      comment: 'granted manually',
+    })
+  }
+  try {
+    const { tools } = createContext()
+    const get = toolByName(tools, 'jumpserver_get_permission')
+    const output = await get.execute({ id: '123e4567-e89b-12d3-a456-426614174000' }, execution())
+    assert.match(output, /name="Role-alice"/)
+    assert.match(output, /users_count=2/)
+    assert.match(output, /users="alice, bob"/)
+    assert.match(output, /user_groups="devs"/)
+    assert.match(output, /assets="web-01"/)
+    assert.match(output, /nodes="\/Default\/prod"/)
+    // accounts 含 "@ALL" 时必须明确标注为授权全部账号。
+    assert.match(output, /accounts="@ALL \(all accounts\)"/)
+    const requestUrl = new URL(calls[0])
+    assert.match(requestUrl.pathname, /\/api\/v1\/perms\/asset-permissions\/123e4567-e89b-12d3-a456-426614174000\/$/)
+    await assert.rejects(get.execute({ id: 'bad' }, execution()), /valid JumpServer UUID/)
   } finally {
     globalThis.fetch = originalFetch
   }

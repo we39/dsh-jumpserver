@@ -83,6 +83,7 @@ Read-only tools paginate with `limit` (1-100, default 20) / `offset` (default 0)
 | `jumpserver_list_accounts` | Lists accounts (asset login credentials), optionally filtered by `asset` id or `username`. Never returns secrets or passphrases. |
 | `jumpserver_get_account` | Gets full detail for one account by `id`. Never returns the secret or passphrase. |
 | `jumpserver_list_permissions` | Lists asset-permission rules, optionally filtered by `userId` or `assetId`. |
+| `jumpserver_get_permission` | Gets full detail for one asset-permission rule by `id`, including the concrete users, user groups, assets, asset-tree nodes, and accounts it references. |
 | `jumpserver_list_sessions` | Lists terminal (audit) sessions, optionally filtered by `user`, `asset`, or `isFinished`. |
 | `jumpserver_create_asset` | **Write.** Creates an asset (`name`, `address`, `platform` required; `comment`, `isActive` optional). Requires native user approval. |
 | `jumpserver_update_asset` | **Write.** Updates an existing asset by `id`; only the fields you pass are changed. Requires native user approval. |
