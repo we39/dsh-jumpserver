@@ -69,7 +69,7 @@ Create the AccessKey under a JumpServer account that only has read access to the
 
 ## Tools
 
-62 tools (21 read-only / 41 write) across 13 domains. All write tools require native user approval.
+53 tools (12 read-only / 41 write) across 10 domains. All write tools require native user approval.
 
 | Domain | Tools | Scope |
 | --- | --- | --- |
@@ -81,9 +81,6 @@ Create the AccessKey under a JumpServer account that only has read access to the
 | User Groups | 5 | groups, details, create/update/delete |
 | Command Groups | 5 | command-pattern groups, details, create/update/delete |
 | Command Filters | 5 | security filters, details, create/update/delete |
-| Network Domains | 3 | domains, create/update/delete |
-| Gateways | 3 | gateways, create/update/delete |
-| Labels | 3 | labels, create/update/delete |
 | Asset Tree | 6 | nodes, details, create/update/delete, move |
 | RBAC | 8 | roles, bindings, create/update/delete |
 

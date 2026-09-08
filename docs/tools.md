@@ -1,5 +1,7 @@
 # dsh-jumpserver tools
 
+53 tools (12 read-only / 41 write) across 10 domains.
+
 ## Read-only tools
 
 | Name | Summary |
@@ -53,15 +55,6 @@
 | `jumpserver_create_command_filter` | Create command filter. |
 | `jumpserver_update_command_filter` | Update command filter. |
 | `jumpserver_delete_command_filter` | Delete command filter. |
-| `jumpserver_create_domain` | Create network domain. |
-| `jumpserver_update_domain` | Update network domain. |
-| `jumpserver_delete_domain` | Delete network domain. |
-| `jumpserver_create_gateway` | Create gateway. |
-| `jumpserver_update_gateway` | Update gateway. |
-| `jumpserver_delete_gateway` | Delete gateway. |
-| `jumpserver_create_label` | Create label. |
-| `jumpserver_update_label` | Update label. |
-| `jumpserver_delete_label` | Delete label. |
 | `jumpserver_create_node` | Create asset-tree node. |
 | `jumpserver_update_node` | Rename asset-tree node. |
 | `jumpserver_delete_node` | Delete asset-tree node. |
