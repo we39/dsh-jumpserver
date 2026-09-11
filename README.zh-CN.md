@@ -35,13 +35,13 @@ dsh plugin --profile add link:/absolute/path/to/dsh-jumpserver
 发布后，尽量安装已发布的、不可变的 tag 版本：
 
 ```bash
-dsh plugin --profile add github:easyv-ai/dsh-jumpserver#v<version>
+dsh plugin --profile add github:we39/dsh-jumpserver#v<version>
 ```
 
 仅在测试时安装可变的开发分支：
 
 ```bash
-dsh plugin --profile add github:easyv-ai/dsh-jumpserver
+dsh plugin --profile add github:we39/dsh-jumpserver
 ```
 
 安装后需重启对应的 DSH profile。Windows 上请使用绝对路径 `link:C:/path/to/dsh-jumpserver`。

@@ -32,13 +32,13 @@ dsh plugin --profile add link:/absolute/path/to/dsh-jumpserver
 Once published, install a released, immutable tag whenever possible:
 
 ```bash
-dsh plugin --profile add github:easyv-ai/dsh-jumpserver#v<version>
+dsh plugin --profile add github:we39/dsh-jumpserver#v<version>
 ```
 
 Install the mutable development branch only for testing:
 
 ```bash
-dsh plugin --profile add github:easyv-ai/dsh-jumpserver
+dsh plugin --profile add github:we39/dsh-jumpserver
 ```
 
 Restart the selected DSH profile after installation. On Windows, use an absolute `link:C:/path/to/dsh-jumpserver` path.

@@ -49,15 +49,15 @@
     "jumpserver",
     "bastion"
   ],
-  "author": "easyv-ai",
+  "author": "we39",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/easyv-ai/dsh-jumpserver.git"
+    "url": "git+https://github.com/we39/dsh-jumpserver.git"
   },
-  "homepage": "https://github.com/easyv-ai/dsh-jumpserver#readme",
+  "homepage": "https://github.com/we39/dsh-jumpserver#readme",
   "bugs": {
-    "url": "https://github.com/easyv-ai/dsh-jumpserver/issues"
+    "url": "https://github.com/we39/dsh-jumpserver/issues"
   },
   "publishConfig": {
     "access": "public"
