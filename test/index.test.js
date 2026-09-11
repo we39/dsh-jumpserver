@@ -501,15 +501,15 @@ test('WRITE_TOOL_NAMES lists exactly the thirty-four write tools', () => {
 test('approvalReasonForWrite describes create/update/delete from arguments only (no extra fetch)', () => {
   assert.match(
     internals.approvalReasonForWrite({ name: 'jumpserver_create_asset', arguments: { name: 'web-02', address: '10.0.0.2', platform: 'Linux' } }),
-    /Create a new JumpServer asset: name="web-02", address="10\.0\.0\.2", platform="Linux"/,
+    /创建新的 JumpServer 资产：name="web-02"，address="10\.0\.0\.2"，platform="Linux"/,
   )
   assert.match(
     internals.approvalReasonForWrite({ name: 'jumpserver_update_asset', arguments: { id: 'abc-123', comment: 'retiring soon' } }),
-    /Update JumpServer asset id=abc-123\. Changes: comment="retiring soon"\./,
+    /更新 JumpServer 资产 id=abc-123。变更：comment="retiring soon"。/,
   )
   assert.match(
     internals.approvalReasonForWrite({ name: 'jumpserver_delete_asset', arguments: { id: 'abc-123' } }),
-    /PERMANENTLY DELETE JumpServer asset id=abc-123.*cannot be undone/,
+    /永久删除 JumpServer 资产 id=abc-123.*不可撤销/,
   )
 })
 
@@ -519,25 +519,25 @@ test('approvalReasonForWrite never includes the literal secret/passphrase value 
     arguments: { username: 'root', asset: 'asset-1', secret: 'super-secret-value' },
   })
   assert.match(createReason, /username="root"/)
-  assert.match(createReason, /Includes a secret\/password value/)
+  assert.match(createReason, /包含密钥\/密码值/)
   assert.doesNotMatch(createReason, /super-secret-value/)
 
   const createReasonNoSecret = internals.approvalReasonForWrite({
     name: 'jumpserver_create_account',
     arguments: { username: 'root', asset: 'asset-1' },
   })
-  assert.match(createReasonNoSecret, /No secret\/password provided/)
+  assert.match(createReasonNoSecret, /未提供密钥\/密码/)
 
   const updateReason = internals.approvalReasonForWrite({
     name: 'jumpserver_update_account',
     arguments: { id: 'acc-1', secret: 'rotated-secret-value', passphrase: 'also-secret' },
   })
-  assert.match(updateReason, /Also changes the secret\/password value/)
+  assert.match(updateReason, /同时变更密钥\/密码值/)
   assert.doesNotMatch(updateReason, /rotated-secret-value/)
   assert.doesNotMatch(updateReason, /also-secret/)
 
   const deleteReason = internals.approvalReasonForWrite({ name: 'jumpserver_delete_account', arguments: { id: 'acc-1' } })
-  assert.match(deleteReason, /PERMANENTLY DELETE JumpServer account id=acc-1/)
+  assert.match(deleteReason, /永久删除 JumpServer 账号 id=acc-1/)
 })
 
 test('the tools/pre-execute gate forces every write tool to "ask" and leaves read-only tools untouched', async () => {
@@ -556,7 +556,7 @@ test('the tools/pre-execute gate forces every write tool to "ask" and leaves rea
     async () => ({ kind: 'allow' }),
   )
   assert.equal(writeDecision.kind, 'ask')
-  assert.match(writeDecision.reason, /PERMANENTLY DELETE/)
+  assert.match(writeDecision.reason, /永久删除/)
 
   // 如果上游网关已经拒绝，本网关不应该把拒绝改写成 ask。
   const deniedDecision = await gate(
@@ -1207,21 +1207,21 @@ test('approvalReasonForWrite never includes the literal password for user update
     name: 'jumpserver_update_user',
     arguments: { id: 'u1', name: 'Bob', password: 'super-secret-password' },
   })
-  assert.match(updateReason, /Update JumpServer user id=u1/)
-  assert.match(updateReason, /Also resets the login password/)
+  assert.match(updateReason, /更新 JumpServer 用户 id=u1/)
+  assert.match(updateReason, /同时将登录密码重置为新值/)
   assert.doesNotMatch(updateReason, /super-secret-password/)
 
   const updateReasonNoPassword = internals.approvalReasonForWrite({
     name: 'jumpserver_update_user',
     arguments: { id: 'u1', isActive: false },
   })
-  assert.doesNotMatch(updateReasonNoPassword, /resets the login password/)
+  assert.doesNotMatch(updateReasonNoPassword, /将登录密码重置为新值/)
 
   const mfaReason = internals.approvalReasonForWrite({ name: 'jumpserver_reset_user_mfa', arguments: { id: 'u1' } })
-  assert.match(mfaReason, /Reset MFA\/OTP binding for JumpServer user id=u1/)
+  assert.match(mfaReason, /重置 JumpServer 用户 id=u1 的 MFA\/OTP 绑定/)
 
   const sshReason = internals.approvalReasonForWrite({ name: 'jumpserver_reset_user_ssh_key', arguments: { id: 'u1' } })
-  assert.match(sshReason, /Reset the JumpServer login SSH public key for user id=u1/)
+  assert.match(sshReason, /重置 JumpServer 用户 id=u1 的登录 SSH 公钥/)
 })
 
 test('approvalReasonForWrite summarizes permission grants by counts, and flags deletes as irreversible', () => {
@@ -1230,14 +1230,14 @@ test('approvalReasonForWrite summarizes permission grants by counts, and flags d
     arguments: { name: 'dev-access', users: ['u1'], userGroups: [], assets: ['a1', 'a2'], accounts: ['acc1'] },
   })
   assert.match(createReason, /name="dev-access"/)
-  assert.match(createReason, /Grants 1 user\(s\) and 0 user group\(s\) access to 2 asset\(s\) via 1 account\(s\)/)
+  assert.match(createReason, /授予 1 个用户和 0 个用户组通过 1 个账号访问 2 个资产的权限/)
 
   const deleteReason = internals.approvalReasonForWrite({ name: 'jumpserver_delete_permission', arguments: { id: 'p1' } })
-  assert.match(deleteReason, /PERMANENTLY DELETE JumpServer asset-permission rule id=p1/)
-  assert.match(deleteReason, /cannot be undone/)
+  assert.match(deleteReason, /永久删除 JumpServer 资产授权规则 id=p1/)
+  assert.match(deleteReason, /不可撤销/)
 
   const deleteUserReason = internals.approvalReasonForWrite({ name: 'jumpserver_delete_user', arguments: { id: 'u1' } })
-  assert.match(deleteUserReason, /PERMANENTLY DELETE JumpServer user id=u1/)
+  assert.match(deleteUserReason, /永久删除 JumpServer 用户 id=u1/)
 })
 
 test('the tools/pre-execute gate also forces user and permission write tools to "ask"', async () => {
@@ -1715,26 +1715,26 @@ test('approvalReasonForWrite flags action="accept" as a security downgrade for c
     name: 'jumpserver_create_command_filter',
     arguments: { name: 'relaxed', action: 'accept', users: ['u1'], assets: ['a1'], accounts: ['acc1'] },
   })
-  assert.match(createReason, /SECURITY NOTE/)
+  assert.match(createReason, /安全提示/)
 
   const updateAcceptReason = internals.approvalReasonForWrite({
     name: 'jumpserver_update_command_filter',
     arguments: { id: 'f1', action: 'accept' },
   })
-  assert.match(updateAcceptReason, /SECURITY DOWNGRADE/)
-  assert.match(updateAcceptReason, /STOP blocking/)
+  assert.match(updateAcceptReason, /安全降级/)
+  assert.match(updateAcceptReason, /停止拦截/)
 
   const updateWarningReason = internals.approvalReasonForWrite({
     name: 'jumpserver_update_command_filter',
     arguments: { id: 'f1', action: 'warning' },
   })
-  assert.match(updateWarningReason, /SECURITY NOTE/)
+  assert.match(updateWarningReason, /安全提示/)
 
   const updateRejectReason = internals.approvalReasonForWrite({
     name: 'jumpserver_update_command_filter',
     arguments: { id: 'f1', action: 'reject' },
   })
-  assert.doesNotMatch(updateRejectReason, /SECURITY/)
+  assert.doesNotMatch(updateRejectReason, /安全/)
 })
 
 test('approvalReasonForWrite warns about removing active protection when deleting a reject/warning command filter, based on __currentAction', () => {
@@ -1742,26 +1742,26 @@ test('approvalReasonForWrite warns about removing active protection when deletin
     name: 'jumpserver_delete_command_filter',
     arguments: { id: 'f1', __currentAction: 'reject' },
   })
-  assert.match(rejectReason, /SECURITY WARNING/)
-  assert.match(rejectReason, /REMOVES that command-blocking protection/)
+  assert.match(rejectReason, /安全警告/)
+  assert.match(rejectReason, /移除命令拦截保护/)
 
   const warningReason = internals.approvalReasonForWrite({
     name: 'jumpserver_delete_command_filter',
     arguments: { id: 'f1', __currentAction: 'warning' },
   })
-  assert.match(warningReason, /SECURITY NOTE/)
+  assert.match(warningReason, /安全提示/)
 
   const acceptReason = internals.approvalReasonForWrite({
     name: 'jumpserver_delete_command_filter',
     arguments: { id: 'f1', __currentAction: 'accept' },
   })
-  assert.doesNotMatch(acceptReason, /SECURITY/)
+  assert.doesNotMatch(acceptReason, /安全/)
 
   const unknownReason = internals.approvalReasonForWrite({
     name: 'jumpserver_delete_command_filter',
     arguments: { id: 'f1' },
   })
-  assert.match(unknownReason, /Could not confirm/)
+  assert.match(unknownReason, /无法确认/)
 })
 
 test('the tools/pre-execute gate fetches the current action before approving a command-filter deletion, and does not block approval if the fetch fails', async () => {
@@ -1775,7 +1775,7 @@ test('the tools/pre-execute gate fetches the current action before approving a c
       async () => ({ kind: 'allow' }),
     )
     assert.equal(decision.kind, 'ask')
-    assert.match(decision.reason, /SECURITY WARNING/)
+    assert.match(decision.reason, /安全警告/)
   } finally {
     globalThis.fetch = originalFetch
   }
@@ -1789,7 +1789,7 @@ test('the tools/pre-execute gate fetches the current action before approving a c
       async () => ({ kind: 'allow' }),
     )
     assert.equal(decision.kind, 'ask')
-    assert.match(decision.reason, /Could not confirm/)
+    assert.match(decision.reason, /无法确认/)
   } finally {
     globalThis.fetch = originalFetch
   }
@@ -2122,23 +2122,23 @@ test('the tools/pre-execute gate also forces node write tools to "ask", and node
 test('approvalReasonForWrite describes node create/update/delete/move, flagging fullValue path creation', () => {
   assert.match(
     internals.approvalReasonForWrite({ name: 'jumpserver_create_node', arguments: { value: 'Beijing' } }),
-    /Create a new JumpServer asset-tree node: value="Beijing", as a direct child of the organization root node/,
+    /创建新的 JumpServer 资产树节点：value="Beijing"，作为组织根节点的直接子节点/,
   )
   assert.match(
     internals.approvalReasonForWrite({ name: 'jumpserver_create_node', arguments: { fullValue: 'Default/East/Beijing' } }),
-    /fullValue="Default\/East\/Beijing".*intermediate nodes/,
+    /fullValue="Default\/East\/Beijing".*中间节点/,
   )
   assert.match(
     internals.approvalReasonForWrite({ name: 'jumpserver_update_node', arguments: { id: 'n1', value: 'Renamed' } }),
-    /Rename JumpServer asset-tree node id=n1 to value="Renamed"/,
+    /将 JumpServer 资产树节点 id=n1 重命名为 value="Renamed"/,
   )
   assert.match(
     internals.approvalReasonForWrite({ name: 'jumpserver_delete_node', arguments: { id: 'n1' } }),
-    /PERMANENTLY DELETE JumpServer asset-tree node id=n1/,
+    /永久删除 JumpServer 资产树节点 id=n1/,
   )
   assert.match(
     internals.approvalReasonForWrite({ name: 'jumpserver_move_node', arguments: { id: 'n1', targetParentId: 'n2' } }),
-    /Move JumpServer asset-tree node id=n1 .* child of node id=n2/,
+    /移动 JumpServer 资产树节点 id=n1.*使其成为节点 id=n2 的子节点/,
   )
 })
 
@@ -2391,14 +2391,14 @@ test('the tools/pre-execute gate also forces role and role-binding write tools t
 
 test('approvalReasonForWrite flags system-scope role creation/binding as high risk', () => {
   const systemCreate = internals.approvalReasonForWrite({ name: 'jumpserver_create_role', arguments: { name: 'SuperRole', scope: 'system', permissionIds: ['p1'] } })
-  assert.match(systemCreate, /HIGH RISK/)
+  assert.match(systemCreate, /高风险/)
   const orgCreate = internals.approvalReasonForWrite({ name: 'jumpserver_create_role', arguments: { name: 'OrgRole', scope: 'org', permissionIds: [] } })
-  assert.doesNotMatch(orgCreate, /HIGH RISK/)
+  assert.doesNotMatch(orgCreate, /高风险/)
 
   const binding = internals.approvalReasonForWrite({ name: 'jumpserver_create_role_binding', arguments: { userId: 'u1', roleId: 'r1' } })
-  assert.match(binding, /HIGH RISK/)
-  assert.match(binding, /organization: none \(system scope\)/)
+  assert.match(binding, /高风险/)
+  assert.match(binding, /组织：none（system 作用域）/)
 
   const del = internals.approvalReasonForWrite({ name: 'jumpserver_delete_role', arguments: { id: 'r1' } })
-  assert.match(del, /PERMANENTLY DELETE JumpServer RBAC role id=r1/)
+  assert.match(del, /永久删除 JumpServer RBAC 角色 id=r1/)
 })

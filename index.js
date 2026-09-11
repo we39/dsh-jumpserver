@@ -354,10 +354,10 @@ function approvalReasonForWrite(exec) {
     const name = JSON.stringify(String(args.name ?? ''))
     const address = JSON.stringify(String(args.address ?? ''))
     const platform = JSON.stringify(String(args.platform ?? ''))
-    return `Create a new JumpServer asset: name=${name}, address=${address}, platform=${platform}.`
+    return `创建新的 JumpServer 资产：name=${name}，address=${address}，platform=${platform}。`
   }
   if (exec.name === 'jumpserver_update_asset') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       address: args.address,
@@ -365,68 +365,68 @@ function approvalReasonForWrite(exec) {
       comment: args.comment,
       isActive: args.isActive,
     })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no fields provided)'
-    return `Update JumpServer asset id=${id}. Changes: ${changeSummary}.`
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供字段）'
+    return `更新 JumpServer 资产 id=${id}。变更：${changeSummary}。`
   }
   if (exec.name === 'jumpserver_delete_asset') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer asset id=${id}. This cannot be undone.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 资产 id=${id}。此操作不可撤销。`
   }
   if (exec.name === 'jumpserver_create_account') {
     const username = JSON.stringify(String(args.username ?? ''))
-    const asset = String(args.asset ?? 'unknown')
+    const asset = String(args.asset ?? '未知')
     // 绝不把 secret/passphrase 的具体值放进审批文案，只提示"是否包含密钥"这一事实。
     const hasSecret = args.secret !== undefined && args.secret !== null && String(args.secret) !== ''
-    const secretNote = hasSecret ? ' Includes a secret/password value (not shown here).' : ' No secret/password provided.'
-    return `Create a new JumpServer account: username=${username} on asset id=${asset}.${secretNote}`
+    const secretNote = hasSecret ? ' 包含密钥/密码值（此处不显示）。' : ' 未提供密钥/密码。'
+    return `创建新的 JumpServer 账号：username=${username}，所属资产 id=${asset}。${secretNote}`
   }
   if (exec.name === 'jumpserver_update_account') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       comment: args.comment,
       privileged: args.privileged,
       isActive: args.isActive,
     })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no other fields provided)'
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供其他字段）'
     const hasSecret = args.secret !== undefined && args.secret !== null && String(args.secret) !== ''
-    const secretNote = hasSecret ? ' Also changes the secret/password value (not shown here).' : ''
-    return `Update JumpServer account id=${id}. Changes: ${changeSummary}.${secretNote}`
+    const secretNote = hasSecret ? ' 同时变更密钥/密码值（此处不显示）。' : ''
+    return `更新 JumpServer 账号 id=${id}。变更：${changeSummary}。${secretNote}`
   }
   if (exec.name === 'jumpserver_delete_account') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer account id=${id}. This cannot be undone and may disrupt automated access to the underlying asset.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 账号 id=${id}。此操作不可撤销，可能中断底层资产的自动化访问。`
   }
   if (exec.name === 'jumpserver_create_user') {
     const username = JSON.stringify(String(args.username ?? ''))
     const email = JSON.stringify(String(args.email ?? ''))
-    return `Create a new JumpServer user: username=${username}, email=${email}. This is a platform login identity with no asset permissions until one is explicitly granted.`
+    return `创建新的 JumpServer 平台用户：username=${username}，email=${email}。这是平台登录身份，在显式授权前不具备任何资产权限。`
   }
   if (exec.name === 'jumpserver_delete_user') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer user id=${id}. This cannot be undone; the user immediately loses all platform access.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 用户 id=${id}。此操作不可撤销；该用户将立即失去所有平台访问权限。`
   }
   if (exec.name === 'jumpserver_update_user') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       email: args.email,
       comment: args.comment,
       isActive: args.isActive,
     })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no other fields provided)'
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供其他字段）'
     // 密码值绝不放进审批文案，只提示"是否包含密码修改"这一事实。
     const hasPassword = args.password !== undefined && args.password !== null && String(args.password) !== ''
-    const passwordNote = hasPassword ? ' Also resets the login password to a new value (not shown here).' : ''
-    return `Update JumpServer user id=${id}. Changes: ${changeSummary}.${passwordNote}`
+    const passwordNote = hasPassword ? ' 同时将登录密码重置为新值（此处不显示）。' : ''
+    return `更新 JumpServer 用户 id=${id}。变更：${changeSummary}。${passwordNote}`
   }
   if (exec.name === 'jumpserver_reset_user_mfa') {
-    const id = String(args.id ?? 'unknown')
-    return `Reset MFA/OTP binding for JumpServer user id=${id}. The user must set up multi-factor authentication again on next login.`
+    const id = String(args.id ?? '未知')
+    return `重置 JumpServer 用户 id=${id} 的 MFA/OTP 绑定。该用户下次登录时必须重新配置多因素认证。`
   }
   if (exec.name === 'jumpserver_reset_user_ssh_key') {
-    const id = String(args.id ?? 'unknown')
-    return `Reset the JumpServer login SSH public key for user id=${id}. The user must configure a new key to use public-key login again.`
+    const id = String(args.id ?? '未知')
+    return `重置 JumpServer 用户 id=${id} 的登录 SSH 公钥。该用户必须配置新密钥才能再次使用公钥登录。`
   }
   if (exec.name === 'jumpserver_create_permission') {
     const name = JSON.stringify(String(args.name ?? ''))
@@ -434,10 +434,10 @@ function approvalReasonForWrite(exec) {
     const groupCount = Array.isArray(args.userGroups) ? args.userGroups.length : 0
     const assetCount = Array.isArray(args.assets) ? args.assets.length : 0
     const accountCount = Array.isArray(args.accounts) ? args.accounts.length : 0
-    return `Create a new JumpServer asset-permission rule: name=${name}. Grants ${userCount} user(s) and ${groupCount} user group(s) access to ${assetCount} asset(s) via ${accountCount} account(s).`
+    return `创建新的 JumpServer 资产授权规则：name=${name}。授予 ${userCount} 个用户和 ${groupCount} 个用户组通过 ${accountCount} 个账号访问 ${assetCount} 个资产的权限。`
   }
   if (exec.name === 'jumpserver_update_permission') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       users: args.users,
@@ -447,60 +447,60 @@ function approvalReasonForWrite(exec) {
       isActive: args.isActive,
       comment: args.comment,
     })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no fields provided)'
-    return `Update JumpServer asset-permission rule id=${id}. Changes: ${changeSummary}.`
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供字段）'
+    return `更新 JumpServer 资产授权规则 id=${id}。变更：${changeSummary}。`
   }
   if (exec.name === 'jumpserver_delete_permission') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer asset-permission rule id=${id}. This revokes the granted access immediately and cannot be undone.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 资产授权规则 id=${id}。此操作立即撤销已授予的访问权限且不可撤销。`
   }
   if (exec.name === 'jumpserver_create_user_group') {
     const name = JSON.stringify(String(args.name ?? ''))
     const memberCount = Array.isArray(args.users) ? args.users.length : 0
-    return `Create a new JumpServer user group: name=${name} with ${memberCount} initial member(s). A group by itself grants no asset access.`
+    return `创建新的 JumpServer 用户组：name=${name}，初始成员 ${memberCount} 个。用户组本身不授予任何资产访问权限。`
   }
   if (exec.name === 'jumpserver_update_user_group') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       users: args.users,
       comment: args.comment,
     })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no fields provided)'
-    return `Update JumpServer user group id=${id}. Changes: ${changeSummary}.`
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供字段）'
+    return `更新 JumpServer 用户组 id=${id}。变更：${changeSummary}。`
   }
   if (exec.name === 'jumpserver_delete_user_group') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer user group id=${id}. This cannot be undone; any permission rules referencing this group lose that grant.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 用户组 id=${id}。此操作不可撤销；引用该用户组的授权规则将失去对应授权。`
   }
   if (exec.name === 'jumpserver_create_command_group') {
     const name = JSON.stringify(String(args.name ?? ''))
-    return `Create a new JumpServer command group: name=${name}. A command group has no effect by itself until bound to a command filter.`
+    return `创建新的 JumpServer 命令组：name=${name}。命令组本身不生效，直到绑定到命令过滤规则。`
   }
   if (exec.name === 'jumpserver_update_command_group') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({ name: args.name, type: args.type, content: args.content, comment: args.comment, ignoreCase: args.ignoreCase })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no fields provided)'
-    return `Update JumpServer command group id=${id}. Changes: ${changeSummary}. Any command filter bound to this group is affected by this change.`
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供字段）'
+    return `更新 JumpServer 命令组 id=${id}。变更：${changeSummary}。绑定该命令组的命令过滤规则都会受此变更影响。`
   }
   if (exec.name === 'jumpserver_delete_command_group') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer command group id=${id}. Any command filter bound to this group loses that matching rule — this cannot be undone.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 命令组 id=${id}。绑定该命令组的命令过滤规则将失去对应匹配规则——此操作不可撤销。`
   }
   if (exec.name === 'jumpserver_create_command_filter') {
     const name = JSON.stringify(String(args.name ?? ''))
     const action = String(args.action ?? 'reject')
-    const usersSummary = Array.isArray(args.users) ? `${args.users.length} specific` : 'unknown'
-    const assetsSummary = Array.isArray(args.assets) ? `${args.assets.length} specific` : 'unknown'
-    const accountsSummaryText = Array.isArray(args.accounts) ? `${args.accounts.length} specific` : 'unknown'
+    const usersSummary = Array.isArray(args.users) ? `${args.users.length} 个指定用户` : '未知'
+    const assetsSummary = Array.isArray(args.assets) ? `${args.assets.length} 个指定资产` : '未知'
+    const accountsSummaryText = Array.isArray(args.accounts) ? `${args.accounts.length} 个指定账号` : '未知'
     let warning = ''
     if (action !== 'reject') {
-      warning = ` ⚠️ SECURITY NOTE: action="${action}" does NOT block matching commands (only "reject" blocks); review carefully.`
+      warning = ` ⚠️ 安全提示：action="${action}" 不会拦截匹配的命令（只有 "reject" 会拦截），请仔细确认。`
     }
-    return `Create a new JumpServer command filter: name=${name}, action=${action}, users=${usersSummary}, assets=${assetsSummary}, accounts=${accountsSummaryText}.${warning}`
+    return `创建新的 JumpServer 命令过滤规则：name=${name}，action=${action}，users=${usersSummary}，assets=${assetsSummary}，accounts=${accountsSummaryText}。${warning}`
   }
   if (exec.name === 'jumpserver_update_command_filter') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       priority: args.priority,
@@ -508,65 +508,65 @@ function approvalReasonForWrite(exec) {
       isActive: args.isActive,
     })
     const scopeChanges = pruneUndefined({
-      users: Array.isArray(args.users) ? `${args.users.length} specific` : undefined,
-      assets: Array.isArray(args.assets) ? `${args.assets.length} specific` : undefined,
-      accounts: Array.isArray(args.accounts) ? `${args.accounts.length} specific` : undefined,
-      commandGroups: Array.isArray(args.commandGroupIds) ? `${args.commandGroupIds.length} group(s)` : undefined,
+      users: Array.isArray(args.users) ? `${args.users.length} 个指定用户` : undefined,
+      assets: Array.isArray(args.assets) ? `${args.assets.length} 个指定资产` : undefined,
+      accounts: Array.isArray(args.accounts) ? `${args.accounts.length} 个指定账号` : undefined,
+      commandGroups: Array.isArray(args.commandGroupIds) ? `${args.commandGroupIds.length} 个命令组` : undefined,
     })
     const allChanges = { ...changed, ...scopeChanges }
-    const changeSummary = Object.entries(allChanges).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no fields provided)'
+    const changeSummary = Object.entries(allChanges).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供字段）'
     // 关键安全警示：如果本次更新会把 action 从 reject/warning 降级为 accept（放行），
     // 必须在审批文案里显式、突出地标出这是"降低安全防护等级"，不能只当成普通字段变化展示。
     let downgradeWarning = ''
     if (args.action === 'accept') {
-      downgradeWarning = ' ⚠️ SECURITY DOWNGRADE: setting action="accept" makes this rule STOP blocking or alerting on matching commands — it will silently allow them through. Confirm this is intentional.'
+      downgradeWarning = ' ⚠️ 安全降级：设置 action="accept" 将使该规则停止拦截或告警匹配的命令——将静默放行。请确认这是有意为之。'
     } else if (args.action === 'warning') {
-      downgradeWarning = ' ⚠️ SECURITY NOTE: setting action="warning" only sends an alert; it no longer blocks matching commands.'
+      downgradeWarning = ' ⚠️ 安全提示：设置 action="warning" 仅发送告警，不再拦截匹配的命令。'
     }
-    return `Update JumpServer command filter id=${id}. Changes: ${changeSummary}.${downgradeWarning}`
+    return `更新 JumpServer 命令过滤规则 id=${id}。变更：${changeSummary}。${downgradeWarning}`
   }
   if (exec.name === 'jumpserver_delete_command_filter') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const currentAction = args.__currentAction
     let note
     if (currentAction === 'reject') {
-      note = ' ⚠️ SECURITY WARNING: this rule is currently set to REJECT (block) matching commands. Deleting it REMOVES that command-blocking protection immediately.'
+      note = ' ⚠️ 安全警告：该规则当前为 REJECT（拦截）匹配的命令。删除它将立即移除命令拦截保护。'
     } else if (currentAction === 'warning') {
-      note = ' ⚠️ SECURITY NOTE: this rule is currently set to WARNING (alert) on matching commands. Deleting it removes that alerting.'
+      note = ' ⚠️ 安全提示：该规则当前对匹配的命令为 WARNING（告警）。删除它将移除该告警。'
     } else if (currentAction === 'accept') {
-      note = ' This rule was already set to "accept" (not blocking), so deleting it does not remove any active protection.'
+      note = ' 该规则已设置为 "accept"（不拦截），删除它不会移除任何生效的保护。'
     } else {
-      note = ' Could not confirm this rule\'s current action before deletion — verify manually whether it is an active reject/warning rule before approving.'
+      note = ' 删除前无法确认该规则的当前 action——批准前请手动核实它是否为生效中的 reject/warning 规则。'
     }
-    return `PERMANENTLY DELETE JumpServer command filter id=${id}. This cannot be undone.${note}`
+    return `永久删除 JumpServer 命令过滤规则 id=${id}。此操作不可撤销。${note}`
   }
   if (exec.name === 'jumpserver_create_domain') {
     const name = JSON.stringify(String(args.name ?? ''))
     const assetCount = Array.isArray(args.assets) ? args.assets.length : 0
-    return `Create a new JumpServer network domain: name=${name} with ${assetCount} initial asset(s).`
+    return `创建新的 JumpServer 网络域：name=${name}，初始资产 ${assetCount} 个。`
   }
   if (exec.name === 'jumpserver_update_domain') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       comment: args.comment,
-      assets: Array.isArray(args.assets) ? `${args.assets.length} asset(s)` : undefined,
+      assets: Array.isArray(args.assets) ? `${args.assets.length} 个资产` : undefined,
     })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no fields provided)'
-    return `Update JumpServer network domain id=${id}. Changes: ${changeSummary}.`
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供字段）'
+    return `更新 JumpServer 网络域 id=${id}。变更：${changeSummary}。`
   }
   if (exec.name === 'jumpserver_delete_domain') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer network domain id=${id}. This cannot be undone; any assets/gateways relying on this domain for network access lose that routing.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 网络域 id=${id}。此操作不可撤销；依赖该网络域访问网络的资产/网关将失去对应路由。`
   }
   if (exec.name === 'jumpserver_create_gateway') {
     const name = JSON.stringify(String(args.name ?? ''))
     const address = JSON.stringify(String(args.address ?? ''))
     const domain = String(args.domain ?? 'none')
-    return `Create a new JumpServer gateway: name=${name}, address=${address}, domain=${domain}.`
+    return `创建新的 JumpServer 网关：name=${name}，address=${address}，domain=${domain}。`
   }
   if (exec.name === 'jumpserver_update_gateway') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       address: args.address,
@@ -574,89 +574,89 @@ function approvalReasonForWrite(exec) {
       domain: args.domain,
       comment: args.comment,
       isActive: args.isActive,
-      labels: Array.isArray(args.labels) ? `${args.labels.length} label(s)` : undefined,
+      labels: Array.isArray(args.labels) ? `${args.labels.length} 个标签` : undefined,
     })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no fields provided)'
-    return `Update JumpServer gateway id=${id}. Changes: ${changeSummary}.`
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供字段）'
+    return `更新 JumpServer 网关 id=${id}。变更：${changeSummary}。`
   }
   if (exec.name === 'jumpserver_delete_gateway') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer gateway id=${id}. This cannot be undone; any network domain relying on this gateway loses that routing path, which may cut off access to assets behind it.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 网关 id=${id}。此操作不可撤销；依赖该网关的网络域将失去对应路由路径，可能切断其背后资产的访问。`
   }
   if (exec.name === 'jumpserver_create_label') {
     const name = JSON.stringify(String(args.name ?? ''))
     const value = JSON.stringify(String(args.value ?? ''))
     const assetCount = Array.isArray(args.assets) ? args.assets.length : 0
-    return `Create a new JumpServer label: ${name}=${value}, applied to ${assetCount} asset(s).`
+    return `创建新的 JumpServer 标签：${name}=${value}，应用于 ${assetCount} 个资产。`
   }
   if (exec.name === 'jumpserver_update_label') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       value: args.value,
       comment: args.comment,
       isActive: args.isActive,
-      assets: Array.isArray(args.assets) ? `${args.assets.length} asset(s)` : undefined,
+      assets: Array.isArray(args.assets) ? `${args.assets.length} 个资产` : undefined,
     })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no fields provided)'
-    return `Update JumpServer label id=${id}. Changes: ${changeSummary}.`
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供字段）'
+    return `更新 JumpServer 标签 id=${id}。变更：${changeSummary}。`
   }
   if (exec.name === 'jumpserver_delete_label') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer label id=${id}. This cannot be undone; assets tagged with this label lose that classification.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 标签 id=${id}。此操作不可撤销；打上该标签的资产将失去此分类。`
   }
   if (exec.name === 'jumpserver_create_node') {
     const value = JSON.stringify(String(args.value ?? ''))
     const fullValue = optionalTrimmed(args.fullValue)
-    if (fullValue) return `Create a new JumpServer asset-tree node path: fullValue=${JSON.stringify(fullValue)}. Any missing intermediate nodes along this path are created automatically.`
-    return `Create a new JumpServer asset-tree node: value=${value}, as a direct child of the organization root node.`
+    if (fullValue) return `创建新的 JumpServer 资产树节点路径：fullValue=${JSON.stringify(fullValue)}。路径中缺失的中间节点将自动创建。`
+    return `创建新的 JumpServer 资产树节点：value=${value}，作为组织根节点的直接子节点。`
   }
   if (exec.name === 'jumpserver_update_node') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const value = JSON.stringify(String(args.value ?? ''))
-    return `Rename JumpServer asset-tree node id=${id} to value=${value}.`
+    return `将 JumpServer 资产树节点 id=${id} 重命名为 value=${value}。`
   }
   if (exec.name === 'jumpserver_delete_node') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer asset-tree node id=${id}. This cannot be undone. JumpServer refuses this if the node still contains assets or is the organization root.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer 资产树节点 id=${id}。此操作不可撤销。若该节点仍包含资产或是组织根节点，JumpServer 将拒绝执行。`
   }
   if (exec.name === 'jumpserver_move_node') {
-    const id = String(args.id ?? 'unknown')
-    const targetParentId = String(args.targetParentId ?? 'unknown')
-    return `Move JumpServer asset-tree node id=${id} (and its entire subtree) to become a child of node id=${targetParentId}.`
+    const id = String(args.id ?? '未知')
+    const targetParentId = String(args.targetParentId ?? '未知')
+    return `移动 JumpServer 资产树节点 id=${id}（及其整个子树），使其成为节点 id=${targetParentId} 的子节点。`
   }
   if (exec.name === 'jumpserver_create_role') {
     const name = JSON.stringify(String(args.name ?? ''))
-    const scope = String(args.scope ?? 'unknown')
+    const scope = String(args.scope ?? '未知')
     const permCount = Array.isArray(args.permissionIds) ? args.permissionIds.length : 0
-    const scopeWarning = scope === 'system' ? ' ⚠️ HIGH RISK: scope="system" roles grant platform-wide administrative capability to whoever they are later bound to.' : ''
-    return `Create a new JumpServer RBAC role: name=${name}, scope=${scope}, with ${permCount} permission(s).${scopeWarning}`
+    const scopeWarning = scope === 'system' ? ' ⚠️ 高风险：scope="system" 的角色会向后续绑定者授予平台级管理能力。' : ''
+    return `创建新的 JumpServer RBAC 角色：name=${name}，scope=${scope}，包含 ${permCount} 个权限。${scopeWarning}`
   }
   if (exec.name === 'jumpserver_update_role') {
-    const id = String(args.id ?? 'unknown')
+    const id = String(args.id ?? '未知')
     const changed = pruneUndefined({
       name: args.name,
       comment: args.comment,
       permissionIds: Array.isArray(args.permissionIds) ? `${args.permissionIds.length} permission(s)` : undefined,
     })
-    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '(no fields provided)'
-    return `Update JumpServer RBAC role id=${id}. Changes: ${changeSummary}. ⚠️ If this role has scope="system", changing its permissions is HIGH RISK — it affects everyone already bound to it.`
+    const changeSummary = Object.entries(changed).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(', ') || '（未提供字段）'
+    return `更新 JumpServer RBAC 角色 id=${id}。变更：${changeSummary}。⚠️ 若该角色 scope="system"，修改其权限属于高风险操作——将影响所有已绑定该角色的用户。`
   }
   if (exec.name === 'jumpserver_delete_role') {
-    const id = String(args.id ?? 'unknown')
-    return `PERMANENTLY DELETE JumpServer RBAC role id=${id}. This cannot be undone. JumpServer refuses this for builtin roles or roles still bound to at least one user.`
+    const id = String(args.id ?? '未知')
+    return `永久删除 JumpServer RBAC 角色 id=${id}。此操作不可撤销。JumpServer 会拒绝删除内置角色或仍绑定至少一个用户的角色。`
   }
   if (exec.name === 'jumpserver_create_role_binding') {
-    const userId = String(args.userId ?? 'unknown')
-    const roleId = String(args.roleId ?? 'unknown')
-    const orgId = args.orgId !== undefined ? String(args.orgId) : 'none (system scope)'
-    return `Grant JumpServer role id=${roleId} to user id=${userId} (organization: ${orgId}). ⚠️ If this is a system-scope or builtin admin role, this is HIGH RISK — it may grant platform-wide administrative access.`
+    const userId = String(args.userId ?? '未知')
+    const roleId = String(args.roleId ?? '未知')
+    const orgId = args.orgId !== undefined ? String(args.orgId) : 'none（system 作用域）'
+    return `将 JumpServer 角色 id=${roleId} 授予用户 id=${userId}（组织：${orgId}）。⚠️ 若这是 system 作用域或内置管理员角色，属于高风险操作——可能授予平台级管理访问权限。`
   }
   if (exec.name === 'jumpserver_delete_role_binding') {
-    const id = String(args.id ?? 'unknown')
-    return `Remove JumpServer role binding id=${id}, revoking that role assignment from that user. This cannot be undone. JumpServer refuses this if it is the user's last org-scope role binding in that organization.`
+    const id = String(args.id ?? '未知')
+    return `移除 JumpServer 角色绑定 id=${id}，撤销该用户对应的角色分配。此操作不可撤销。若这是该用户在该组织内最后一个 org 作用域角色绑定，JumpServer 将拒绝执行。`
   }
-  return `Perform a JumpServer write operation: ${exec.name}.`
+  return `执行 JumpServer 写操作：${exec.name}。`
 }
 
 // HTTP Signature (draft-cavage), hmac-sha256 — JumpServer AccessKey 认证方式。
