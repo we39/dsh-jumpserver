@@ -48,7 +48,7 @@ dsh plugin --profile add github:we39/dsh-jumpserver
 
 ## 配置
 
-在 DSH Web 中打开 **设置 → 插件 → JumpServer 资产查询**。
+在 DSH 中打开 **设置 → JumpServer**（DeepSeek Harness 0.2.0+ 在设置页左侧提供独立分区）。0.1.7 宿主上是 **设置 → 插件** 下的 **JumpServer** 标签页；0.1.5 及更早版本是 **设置 → 插件** 下的卡片。
 
 需要配置：
 

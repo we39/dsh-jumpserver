@@ -60,9 +60,35 @@ Safe workflow:
 2. Summarize the results for the user; do not expose raw credentials or ask the user to paste them into chat.
 3. For write tools, clearly state what will change before calling the tool, then let the native approval prompt confirm it with the user.`;
 
+// 新宿主（0.1.7+）的 settings 服务只允许运行时读写标了 .volatile() 的字段：
+// 未标记的字段 settings.describe 读回空，settings.update/mutate 报
+// `Config field "..." is not volatile`。设置页卡片要保存 baseUrl，所以必须标记。
+// 标记后 schemastery 会把字段值包成 Volatile 引用，消费配置前需 unwrapVolatile。
+// 旧宿主忽略 volatile meta，值仍是普通值，unwrapVolatile 原样返回。
+const VOLATILE_WRITE = Symbol.for("cosmokit.volatile.write");
+
+export function unwrapVolatile(value) {
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    VOLATILE_WRITE in value &&
+    typeof value.get === "function"
+  ) {
+    return unwrapVolatile(value.get());
+  }
+  if (Array.isArray(value)) return value.map(unwrapVolatile);
+  if (value !== null && typeof value === "object") {
+    const out = {};
+    for (const key of Object.keys(value)) out[key] = unwrapVolatile(value[key]);
+    return out;
+  }
+  return value;
+}
+
 export const Config = Schema.object({
   baseUrl: Schema.string()
     .default("")
+    .volatile()
     .description(
       "JumpServer base URL, e.g. https://jumpserver.example.com. When empty, resolve from settings.",
     ),
@@ -76,6 +102,7 @@ export const Config = Schema.object({
     ),
   allowInsecureHttp: Schema.boolean()
     .default(true)
+    .volatile()
     .description(
       "Allow plain HTTP for non-loopback JumpServer hosts. Enabled by default so internal HTTP deployments work out of the box; set to false to enforce HTTPS only.",
     ),
@@ -854,13 +881,13 @@ function buildSignatureHeader({ keyId, secret, method, path, headers }) {
 }
 
 export function apply(ctx, config = {}) {
-  const entryConfig = {
+  const entryConfig = unwrapVolatile({
     baseUrl: "",
     akRef: AK_REF,
     skRef: SK_REF,
     allowInsecureHttp: true,
     ...config,
-  };
+  });
   validateCredentialRef(entryConfig.akRef, "AccessKeyID");
   validateCredentialRef(entryConfig.skRef, "AccessKeySecret");
 
@@ -870,12 +897,13 @@ export function apply(ctx, config = {}) {
   ctx.inject(["settings"], (sctx) => {
     const scope = sctx.settings.register(SETTINGS_NAMESPACE, Config, {
       base: entryConfig,
-      validate: (value) => {
+      validate: (raw) => {
+        const value = unwrapVolatile(raw);
         validateCredentialRef(value.akRef, "AccessKeyID");
         validateCredentialRef(value.skRef, "AccessKeySecret");
       },
     });
-    activeConfig = () => scope.get();
+    activeConfig = () => unwrapVolatile(scope.get());
     sctx.effect(() => () => {
       activeConfig = () => entryConfig;
     });

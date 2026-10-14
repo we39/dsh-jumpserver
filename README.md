@@ -45,7 +45,7 @@ Restart the selected DSH profile after installation. On Windows, use an absolute
 
 ## Configuration
 
-In DSH Web, open **Settings → Plugins → JumpServer asset lookup**.
+In DSH, open **Settings → JumpServer** (a standalone section in the left navigation on DeepSeek Harness 0.2.0+). On 0.1.7 hosts it is the **JumpServer** tab under **Settings → Plugins**; on 0.1.5 and earlier it is a card under **Settings → Plugins**.
 
 Configure:
 
@@ -111,7 +111,7 @@ Tests use Node's built-in test runner and mocked JumpServer responses.
 ## Structure
 
 - `index.js` — generic execution engine + full endpoint catalog + write-approval gateway
-- `client.js` — settings-page form card (slot key `jumpserver`)
+- `client.js` — settings-page form card (registers `settings.section`, falling back to `settings.plugins.tab`, then the legacy `settings.plugin.item`, depending on the host)
 - `cordis.patch.yml` — bundle patch (insert id `jumpserver` / name `dsh-jumpserver`)
 - `docs/tools.md` — full tool reference
 - `test/index.test.js` — `node:test` unit tests

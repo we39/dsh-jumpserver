@@ -17,7 +17,10 @@ window.__ModuleLoader__.load({
     const SETTINGS_NS = "jumpserver";
     // 仅用于视觉提示的占位符，永远不会写入凭证库。
     const MASK = "*".repeat(28);
-    const inject = ["slots", "remote", "remote.credentials", "remote.settings"];
+    // 只 inject slots。远端门面（remote.settings / remote.credentials）刻意不写进 inject：
+    // cordis 4.0.2 中任一 inject 项缺席都会让整个插件永久停在 INACTIVE，卡片连同
+    // 其它功能一起消失；改为调用时用 ctx.get 按需解析，缺席时只让卡片报错。
+    const inject = ["slots"];
 
     const STRINGS = {
       zh: {
@@ -118,7 +121,7 @@ window.__ModuleLoader__.load({
       const [skFocus, setSkFocus] = react.useState(false);
       const [lang, setLang] = react.useState(detectLanguage);
       // 展开状态是卡片本地的阅读手势，Host 与设置页都不参与（同官方 PluginCard）。
-      const [open, setOpen] = react.useState(false);
+      const [open, setOpen] = react.useState(props.defaultOpen === true);
       const T = STRINGS[lang] ?? STRINGS.en;
 
       // 已配置时显示虚假掩码；聚焦后展示空白的替换草稿。
@@ -132,7 +135,7 @@ window.__ModuleLoader__.load({
           setStatus({ loaded: true, ak: r.akConfigured, sk: r.skConfigured, base: r.baseConfigured });
           // URL 存 settings namespace（非 secret），describe 直接返回明文，可靠回显。
           if (r.baseUrl) setBaseDraft(r.baseUrl);
-        }).catch(() => {});
+        }).catch((e) => { if (alive) setError(String(e?.message ?? e)); });
         return () => { alive = false; };
       }, [face]);
 
@@ -262,24 +265,132 @@ window.__ModuleLoader__.load({
       ] });
     }
 
-    function apply(ctx) {
-      // DSH 0.1.2：APIProxy 已移除，客户端改走 ctx.remote 的 credentials/settings
-      // 命名空间（由 @deepseek-ai/dsh-api-remotes 挂载）。Remote 调用返回
-      // RemoteResult {ok:true,value}|{ok:false,error}，写操作失败须抛出以让 UI 报错。
-      const mustOk = (res) => {
-        if (!res || res.ok === false) throw (res && res.error) ?? new Error("remote call failed")
-        return res.value
+    // 宿主远端门面（dsh 0.1.2+）：settings / credentials 由 dsh-api-gateway 以
+    // remote.<ns> 之名挂载。必须用 ctx.get 读而不是 ctx.remote.<ns>：未声明 inject 的
+    // 点号访问会直接抛错，而 ctx.get 在服务缺席时只返回 undefined。
+    function remoteNamespace(ctx, ns) {
+      return typeof ctx.get === "function" ? ctx.get(`remote.${ns}`) : undefined;
+    }
+
+    // remote.* 一律返回 { ok, value } 或 { ok:false, error:{ message } }。
+    // 失败必须抛出可读信息：静默降级成空数据会把故障伪装成“没有配置”。
+    function unwrap(res, what) {
+      if (res && typeof res === "object" && res.ok === true) return res.value;
+      const message = (res && typeof res === "object" ? res.error?.message : undefined) || `${what} failed`;
+      throw new Error(message);
+    }
+
+    function requireNamespace(ctx, ns) {
+      const api = remoteNamespace(ctx, ns);
+      if (!api) throw new Error(`remote.${ns} is not available on this DeepSeek Harness host`);
+      return api;
+    }
+
+    // 设置入口注册：不同代际的宿主暴露的槽位不同，按优先级选第一个可用的。
+    //   settings.section      0.2.0+  设置页左侧独立分区（root/list）
+    //   settings.plugins.tab  0.1.7+  “插件”分区内的标签页（root/list）
+    //   settings.plugin.item  ≤0.1.5  内嵌卡片（keyed）；0.1.7 起已从槽位目录移除
+    // 只注册一个，避免同一个卡片出现两次。
+    function registerSettingsEntry(ctx, face) {
+      const candidates = [
+        {
+          name: "settings.section", kind: "list", scope: "root",
+          options: { name: "settings.section", id: "jumpserver", order: 17, label: "JumpServer" },
+          component: () => react.createElement(JumpServerCard, { jumpserverCard: face, defaultOpen: true })
+        },
+        {
+          name: "settings.plugins.tab", kind: "list", scope: "root",
+          options: { name: "settings.plugins.tab", id: "jumpserver", order: 101, label: "JumpServer" },
+          component: () => react.createElement(JumpServerCard, { jumpserverCard: face })
+        },
+        {
+          name: "settings.plugin.item", kind: "keyed",
+          options: { name: "settings.plugin.item", key: "jumpserver", inject: () => ({ jumpserverCard: face }) },
+          component: JumpServerCard
+        }
+      ];
+      // 没有声明探测接口（ctx.slots.spec）的老宿主：保持原先的注册方式，由各自宿主消费。
+      if (typeof ctx.slots.spec !== "function") {
+        for (const candidate of candidates.slice(1)) {
+          ctx.slots.inject(candidate.name, () => ctx.slots.register(candidate.options, candidate.component));
+        }
+        return;
       }
+      ctx.effect(() => {
+        const available = new Map();
+        const waits = [];
+        let active;
+        let unregister;
+        let queued = false;
+        let stopped = false;
+        const reconcile = () => {
+          if (stopped || queued) return;
+          queued = true;
+          // 在声明/撤销回调之外注册，并把同一轮槽位变化合并为一次切换，不制造重复入口。
+          queueMicrotask(() => {
+            queued = false;
+            if (stopped) return;
+            const next = candidates.map((candidate) => available.get(candidate.name)).find(Boolean);
+            if (next === active) return;
+            unregister?.();
+            unregister = void 0;
+            active = void 0;
+            if (next) {
+              try {
+                unregister = ctx.slots.register(next.options, next.component);
+                active = next;
+              } catch (error) {
+                // Fiber 卸载可能先于本控制器的清理；待执行微任务不得复活入口。
+                if (error?.code !== "INACTIVE_EFFECT") throw error;
+                stop();
+              }
+            }
+          });
+        };
+        const stop = () => {
+          if (stopped) return;
+          stopped = true;
+          const disposeActive = unregister;
+          unregister = void 0;
+          active = void 0;
+          disposeActive?.();
+          for (const dispose of waits.reverse()) dispose?.();
+          available.clear();
+        };
+        try {
+          for (const candidate of candidates) waits.push(ctx.slots.inject(candidate.name, () => {
+            const spec = ctx.slots.spec(candidate.name);
+            if (spec?.kind !== candidate.kind || (candidate.scope && spec.scope !== candidate.scope)) return;
+            // 每个声明生命周期用新对象标识；同 tick 撤销并重声明同名槽时也须重挂。
+            const lifetime = { ...candidate };
+            available.set(candidate.name, lifetime);
+            reconcile();
+            return () => {
+              if (available.get(candidate.name) === lifetime) available.delete(candidate.name);
+              reconcile();
+            };
+          }));
+        } catch (error) {
+          stop();
+          throw error;
+        }
+        return stop;
+      }, "dsh-jumpserver: settings navigation");
+    }
+
+    function apply(ctx) {
+      // Remote 调用返回 RemoteResult {ok:true,value}|{ok:false,error}，失败须抛出让 UI 报错。
+      const credentials = () => requireNamespace(ctx, "credentials");
+      const settings = () => requireNamespace(ctx, "settings");
       const face = {
         describe: async () => {
           // AK/SK 走凭证库（只返回 configured）；URL 走 settings namespace（非 secret，返回明文）。
-          // describe 失败时按“未配置”降级，不让设置卡片整体报错（与旧行为一致）。
           const [credRes, setRes] = await Promise.all([
-            ctx.remote.credentials.describe([AK_REF, SK_REF]),
-            ctx.remote.settings.describe(),
+            credentials().describe([AK_REF, SK_REF]),
+            settings().describe(),
           ]);
-          const creds = credRes?.ok ? (credRes.value ?? {}) : {};
-          const namespaces = setRes?.ok ? (setRes.value?.namespaces ?? []) : [];
+          const creds = unwrap(credRes, "credentials.describe") ?? {};
+          const namespaces = unwrap(setRes, "settings.describe")?.namespaces ?? [];
           const jsNs = namespaces.find((n) => n?.ns === SETTINGS_NS);
           const baseUrl = typeof jsNs?.value?.baseUrl === "string" ? jsNs.value.baseUrl : "";
           return {
@@ -289,35 +400,29 @@ window.__ModuleLoader__.load({
             baseUrl,
           };
         },
-        setAk: (value) => ctx.remote.credentials.set(AK_REF, value).then(mustOk),
-        setSk: (value) => ctx.remote.credentials.set(SK_REF, value).then(mustOk),
+        setAk: async (value) => unwrap(await credentials().set(AK_REF, value), "credentials.set"),
+        setSk: async (value) => unwrap(await credentials().set(SK_REF, value), "credentials.set"),
         // URL 存 settings namespace：update 做 deep-merge，不动其它字段。
-        // expectedRevision 无 CAS 需求时显式传 undefined。
-        setBaseUrl: (value) => ctx.remote.settings.update(SETTINGS_NS, { baseUrl: value }, undefined).then(mustOk),
-        // AK/SK 移除走凭证库。
-        unsetAk: () => ctx.remote.credentials.unset(AK_REF).then(mustOk),
-        unsetSk: () => ctx.remote.credentials.unset(SK_REF).then(mustOk),
+        // 网关按声明的参数个数校验实传个数，无 CAS 需求时第三参也要显式传 undefined。
+        setBaseUrl: async (value) => unwrap(await settings().update(SETTINGS_NS, { baseUrl: value }, undefined), "settings.update"),
+        unsetAk: async () => unwrap(await credentials().unset(AK_REF), "credentials.unset"),
+        unsetSk: async () => unwrap(await credentials().unset(SK_REF), "credentials.unset"),
         // URL 移除走 settings.mutate：浏览器只持有 redacted 视图，
         // replace wholesale 会误删 schema 里其它已存字段，故用单字段 op。
-        unsetBaseUrl: () => ctx.remote.settings.mutate(SETTINGS_NS, [{ op: "unset", path: ["baseUrl"] }], undefined).then(mustOk),
+        unsetBaseUrl: async () => unwrap(await settings().mutate(SETTINGS_NS, [{ op: "unset", path: ["baseUrl"] }], undefined), "settings.mutate"),
         // 读取 GUI 的语言偏好（locale 命名空间的 preference 字段）；不可用时返回空串。
         localePreference: async () => {
-          const res = await ctx.remote.settings.describe();
+          const api = remoteNamespace(ctx, "settings");
+          if (!api) return "";
+          const res = await api.describe();
           if (!res?.ok) return "";
-          const namespaces = res.value?.namespaces ?? [];
-          const locale = namespaces.find((n) => n?.ns === "locale");
+          const locale = (res.value?.namespaces ?? []).find((n) => n?.ns === "locale");
           const pref = locale?.value?.preference;
           return typeof pref === "string" ? pref : "";
         }
       };
 
-      ctx.slots.inject("settings.plugin.item", () => ctx.slots.register({
-        // keyed slot：设置页按 Host 端 settings namespace（见 index.js 的
-        // SETTINGS_NAMESPACE）派发卡片，没有 key 的注册永远不会被渲染。
-        name: "settings.plugin.item",
-        key: "jumpserver",
-        inject: () => ({ jumpserverCard: face })
-      }, JumpServerCard));
+      registerSettingsEntry(ctx, face);
     }
 
     exports.apply = apply;

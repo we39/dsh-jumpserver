@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHmac } from "node:crypto";
-import { apply, Config, internals, SETTINGS_NAMESPACE } from "../index.js";
+import { apply, Config, internals, SETTINGS_NAMESPACE, unwrapVolatile } from "../index.js";
 
 function execution() {
   return { signal: new AbortController().signal };
@@ -2920,7 +2920,9 @@ test("apply registers a jumpserver settings namespace and resolves baseUrl throu
 });
 
 test("Config schema exposes documented defaults", () => {
-  const config = Config({});
+  // baseUrl / allowInsecureHttp 标了 .volatile()，宿主解析后得到的是 Volatile 引用，
+  // 消费前由 unwrapVolatile 拆包；这里按真实消费路径比较。
+  const config = unwrapVolatile(Config({}));
   assert.equal(config.baseUrl, "");
   assert.equal(config.akRef, "JUMPSERVER_ACCESS_KEY_ID");
   assert.equal(config.skRef, "JUMPSERVER_ACCESS_KEY_SECRET");
