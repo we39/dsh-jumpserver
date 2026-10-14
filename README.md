@@ -47,21 +47,34 @@ Restart the selected DSH profile after installation. On Windows, use an absolute
 
 In DSH, open **Settings → JumpServer** (a standalone section in the left navigation on DeepSeek Harness 0.2.0+). On 0.1.7 hosts it is the **JumpServer** tab under **Settings → Plugins**; on 0.1.5 and earlier it is a card under **Settings → Plugins**.
 
-Configure:
+The page lists your JumpServer **sources**. Add one per JumpServer you want the assistant to reach (for example production and staging). Each source has:
 
+- **Source name**: required and unique; any language. This is what you (or the assistant) use to pick the source.
+- **UID**: generated automatically, globally unique, read-only. Credentials are keyed by it, so renaming a source never loses its keys.
 - **JumpServer URL**: the absolute base URL, for example `https://jumpserver.example.com`.
-- **Access Key**: create one from the JumpServer web console under your personal API Key list.
-- **Secret Key**: paired with the Access Key above.
+- **Access Key** / **Secret Key**: create the pair from the JumpServer web console under your personal API Key list.
 
-The Access Key/Secret Key use DSH's privileged loopback credential RPC — write-only, the stored values are never read back or displayed. The URL is stored in the `jumpserver` settings namespace as a non-secret field, so it is read back in plaintext and shown in the card for verification.
+Mark one source as the **default**; tool calls that omit `source` use it. With a single source it is the default automatically.
 
-HTTP and HTTPS both work out of the box — internal deployments without TLS certificates can use an `http://` URL with no extra setup. To enforce HTTPS only, disable it in plugin configuration:
+The Access Key/Secret Key use DSH's privileged loopback credential RPC — write-only, the stored values are never read back or displayed. Names, URLs and the default are stored in the `jumpserver` settings namespace as non-secret fields. Removing a source clears only its own keys, and never a key that another source still references.
+
+The page is shown in Simplified Chinese by default and switches to English only when DSH itself is set to English.
+
+HTTP and HTTPS both work out of the box — internal deployments without TLS certificates can use an `http://` URL with no extra setup. To enforce HTTPS only (all sources), disable it in plugin configuration:
 
 ```yaml
 allowInsecureHttp: false
 ```
 
-The credential reference names default to `JUMPSERVER_ACCESS_KEY_ID` / `JUMPSERVER_ACCESS_KEY_SECRET` and can be changed with `akRef` / `skRef` in the plugin configuration.
+### Multiple sources
+
+Every tool accepts an optional `source` argument (a source name or UID). Ask the assistant for "the staging JumpServer" and it calls `jumpserver_sources` to discover the names, then passes `source`. If several sources exist and none is the default, omitting `source` is an error rather than a guess.
+
+For write tools the approval prompt names the target source, and the approval is bound to it: if the default changes between approval and execution, the write is refused instead of landing on a different JumpServer.
+
+### Upgrading from 0.11.x
+
+Your existing single-source setup keeps working. On first start the plugin turns it into a source named `default`, **reusing the same stored Access Key / Secret Key** (the keys themselves are not moved or re-entered). If that automatic step could not run, the settings page shows a "Legacy single-source configuration found" notice with an **Import as a source** button.
 
 ### JumpServer permissions
 
@@ -69,10 +82,11 @@ Create the AccessKey under a JumpServer account that only has read access to the
 
 ## Tools
 
-53 tools (12 read-only / 41 write) across 10 domains. All write tools require native user approval.
+54 tools (13 read-only / 41 write) across 11 domains. All write tools require native user approval. Every tool except `jumpserver_sources` takes an optional `source` argument.
 
 | Domain | Tools | Scope |
 | --- | --- | --- |
+| Sources | 1 | list the configured JumpServer sources (never returns keys) |
 | Assets | 5 | assets, details, create/update/delete |
 | Users | 7 | users, details, create/update/delete, password/MFA/SSH-key reset |
 | Accounts | 5 | asset accounts, details, create/update/delete |

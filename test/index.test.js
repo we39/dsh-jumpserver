@@ -157,6 +157,7 @@ test("apply registers all tools (read-only + write) and a system prompt section"
   assert.deepEqual(
     tools.map((tool) => tool.name),
     [
+      "jumpserver_sources",
       "jumpserver_list_assets",
       "jumpserver_get_asset",
       "jumpserver_list_users",

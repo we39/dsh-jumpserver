@@ -1,11 +1,12 @@
 # dsh-jumpserver tools
 
-53 tools (12 read-only / 41 write) across 10 domains.
+54 tools (13 read-only / 41 write) across 11 domains. Every tool except `jumpserver_sources` takes an optional `source` argument (a configured source name or UID); omit it to use the default source.
 
 ## Read-only tools
 
 | Name | Summary |
 | --- | --- |
+| `jumpserver_sources` | List the configured JumpServer sources (name, URL, whether the keys are configured, default). Never returns credentials. |
 | `jumpserver_list_assets` | List assets, optionally filtered by search. |
 | `jumpserver_get_asset` | Get one asset by id. |
 | `jumpserver_list_users` | List users, optionally filtered by search. |

@@ -50,21 +50,34 @@ dsh plugin --profile add github:we39/dsh-jumpserver
 
 在 DSH 中打开 **设置 → JumpServer**（DeepSeek Harness 0.2.0+ 在设置页左侧提供独立分区）。0.1.7 宿主上是 **设置 → 插件** 下的 **JumpServer** 标签页；0.1.5 及更早版本是 **设置 → 插件** 下的卡片。
 
-需要配置：
+页面列出你的 JumpServer **源站**。每台想让助手访问的 JumpServer（例如生产、测试）各添加一个源站。每个源站包含：
 
+- **源站名称**：必填且唯一，可用任何语言。你（或助手）用它来选择源站。
+- **UID**：自动生成、全球唯一、不可修改。凭证按它存放，所以重命名源站不会丢失密钥。
 - **JumpServer URL**：绝对地址，例如 `https://jumpserver.example.com`。
-- **Access Key**：在 JumpServer 网页控制台的个人 API Key 列表中创建。
-- **Secret Key**：与上面的 Access Key 配对。
+- **Access Key** / **Secret Key**：在 JumpServer 网页控制台的个人 API Key 列表中创建的一对密钥。
 
-Access Key/Secret Key 使用 DSH 特权的本地回环凭证 RPC——只写不读，存储的值永远不会被读回或显示。URL 存储在 `jumpserver` 设置命名空间中，属于非敏感字段，保存后会以明文形式回显在卡片中以便核对。
+可以把其中一个设为**默认**源站；省略 `source` 的工具调用会使用它。只有一个源站时，它自动就是默认。
 
-HTTP 和 HTTPS 均可直接使用——没有 TLS 证书的内部部署可以直接用 `http://` 地址，无需额外配置。请注意，纯 HTTP 会以明文方式传输签名后的请求（虽然密钥本身不会被传输），在不受信任的网络中建议优先使用 HTTPS。如需强制只使用 HTTPS，可在插件配置中关闭：
+Access Key/Secret Key 使用 DSH 特权的本地回环凭证 RPC——只写不读，存储的值永远不会被读回或显示。名称、URL 与默认源站存储在 `jumpserver` 设置命名空间中，属于非敏感字段。移除源站时只会清除它自己的密钥，且不会清除仍被其它源站引用的密钥。
+
+设置页默认显示简体中文，只有当 DSH 本身选择了英文时才切换为英文。
+
+HTTP 和 HTTPS 均可直接使用——没有 TLS 证书的内部部署可以直接用 `http://` 地址，无需额外配置。请注意，纯 HTTP 会以明文方式传输签名后的请求（虽然密钥本身不会被传输），在不受信任的网络中建议优先使用 HTTPS。如需强制只使用 HTTPS（对所有源站生效），可在插件配置中关闭：
 
 ```yaml
 allowInsecureHttp: false
 ```
 
-凭证引用名默认是 `JUMPSERVER_ACCESS_KEY_ID` / `JUMPSERVER_ACCESS_KEY_SECRET`，可以在插件配置中通过 `akRef` / `skRef` 修改。
+### 多源站
+
+除 `jumpserver_sources` 外，每个工具都接受可选的 `source` 参数（源站名称或 UID）。你对助手说“看看测试环境的 JumpServer”，它会先调用 `jumpserver_sources` 获知有哪些名称，再传入 `source`。如果配置了多个源站但没有默认源站，省略 `source` 会直接报错，而不是猜一个。
+
+写工具的审批提示会点名目标源站，并且审批与它绑定：如果在审批之后、执行之前默认源站发生了变化，写入会被拒绝，而不是落到另一台 JumpServer 上。
+
+### 从 0.11.x 升级
+
+原有的单源配置会继续可用。首次启动时，插件会把它转成一个名为 `default` 的源站，并**沿用原来已存的 Access Key / Secret Key**（密钥本身不会被搬运或重新输入）。如果这一步自动迁移没能执行，设置页会显示“检测到旧版单源配置”的提示和**导入为源站**按钮。
 
 ### JumpServer 权限建议
 
@@ -73,10 +86,11 @@ allowInsecureHttp: false
 ## 工具
 
 只读工具中涉及分页的接口支持 `limit`（1-100，默认 20）/ `offset`（默认 0）。
-共 53 个工具（12 个只读 / 41 个写），覆盖 10 个域。所有写工具都需要原生用户审批。
+共 54 个工具（13 个只读 / 41 个写），覆盖 11 个域。所有写工具都需要原生用户审批。除 `jumpserver_sources` 外，每个工具都接受可选的 `source` 参数。
 
 | 工具 | 行为 |
 | --- | --- |
+| `jumpserver_sources` | 列出已配置的 JumpServer 源站（名称、URL、密钥是否已配置、是否默认）；绝不返回密钥。 |
 | `jumpserver_list_assets` | 按可选的 `search` 关键字列出资产。 |
 | `jumpserver_get_asset` | 按 `id` 获取单个资产的完整详情，包含协议和网域信息。 |
 | `jumpserver_list_users` | 按可选的 `search` 关键字列出用户。绝不返回密码、公钥或 MFA 密钥。 |
