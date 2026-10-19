@@ -17,7 +17,7 @@ A DeepSeek Harness plugin for querying and managing JumpServer assets through co
 | Component | Supported baseline |
 | --- | --- |
 | Node.js | 20.11 or newer |
-| DeepSeek Harness | `0.1.2-rc.1` |
+| DeepSeek Harness | `0.2.0-rc.1` – `0.2.1-rc.2` (and later 0.2.1 prereleases) |
 | JumpServer | REST API `v1` (Access Key authentication) |
 
 ## Installation (for the agent)

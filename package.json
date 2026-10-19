@@ -1,6 +1,6 @@
 {
   "name": "dsh-jumpserver",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "JumpServer asset lookup for DeepSeek Harness: query assets via conversation using AccessKey/SecretKey signed requests",
   "type": "module",
   "main": "index.js",
@@ -33,10 +33,10 @@
     "@deepseek-ai/schemastery": "~3.18.4"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-tools": "0.2.0-rc.2"
+    "@deepseek-ai/dsh-tools": "^0.2.0-rc.1 || ^0.2.1-alpha.0"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-tools": "0.2.0-rc.2"
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.2"
   },
   "engines": {
     "node": ">=20.11"

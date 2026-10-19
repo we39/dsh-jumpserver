@@ -179,7 +179,9 @@ export function generateSourceId() {
     const bytes = c.getRandomValues(new Uint8Array(16));
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    const hex = Array.from(bytes, (x) => x.toString(16).padStart(2, "0")).join("");
+    const hex = Array.from(bytes, (x) => x.toString(16).padStart(2, "0")).join(
+      "",
+    );
     return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   }
   return `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -203,7 +205,8 @@ export function skRefForId(id) {
 // 源站名称：必填、非空、限长；trim 后返回（唯一性由调用方按集合校验）。
 export function normalizeSourceName(input) {
   const value = String(input ?? "").trim();
-  if (!value) throw new Error("Each JumpServer source must have a non-empty name.");
+  if (!value)
+    throw new Error("Each JumpServer source must have a non-empty name.");
   if (value.length > MAX_SOURCE_NAME_CHARS)
     throw new Error(
       `JumpServer source name must not exceed ${MAX_SOURCE_NAME_CHARS} characters.`,
@@ -219,24 +222,31 @@ function validateConfigValue(raw) {
   validateCredentialRef(value.skRef ?? SK_REF, "AccessKeySecret");
   const sources = Array.isArray(value.sources) ? value.sources : [];
   if (sources.length > MAX_SOURCES)
-    throw new Error(`At most ${MAX_SOURCES} JumpServer sources can be configured.`);
+    throw new Error(
+      `At most ${MAX_SOURCES} JumpServer sources can be configured.`,
+    );
   const names = new Set();
   const ids = new Set();
   for (const source of sources) {
     const id = typeof source?.id === "string" ? source.id.trim() : "";
     if (!SOURCE_ID_PATTERN.test(id))
-      throw new Error(`Invalid JumpServer source id: ${JSON.stringify(source?.id)}`);
+      throw new Error(
+        `Invalid JumpServer source id: ${JSON.stringify(source?.id)}`,
+      );
     if (ids.has(id)) throw new Error(`Duplicate JumpServer source id: ${id}`);
     ids.add(id);
     const sourceName = normalizeSourceName(source?.name);
     if (names.has(sourceName))
-      throw new Error(`Duplicate JumpServer source name: ${JSON.stringify(sourceName)}`);
+      throw new Error(
+        `Duplicate JumpServer source name: ${JSON.stringify(sourceName)}`,
+      );
     names.add(sourceName);
     if (source.akRef) validateCredentialRef(source.akRef, "AccessKeyID");
     if (source.skRef) validateCredentialRef(source.skRef, "AccessKeySecret");
     if (source.baseUrl) normalizeBaseUrl(source.baseUrl, true);
   }
-  const def = typeof value.defaultSource === "string" ? value.defaultSource : "";
+  const def =
+    typeof value.defaultSource === "string" ? value.defaultSource : "";
   if (def && !ids.has(def))
     throw new Error(
       `defaultSource ${JSON.stringify(def)} does not match any configured JumpServer source.`,
@@ -1076,7 +1086,9 @@ export function apply(ctx, config = {}) {
     const currentConfig = (descriptor = scope ? undefined : descriptorOf()) =>
       unwrapVolatile(
         scope?.get() ??
-          (descriptor?.value ? { ...entryConfig, ...descriptor.value } : entryConfig),
+          (descriptor?.value
+            ? { ...entryConfig, ...descriptor.value }
+            : entryConfig),
       );
     const updateConfig = (patch, descriptor) => {
       validateConfigValue({ ...currentConfig(descriptor), ...patch });
@@ -1145,7 +1157,13 @@ export function apply(ctx, config = {}) {
         await updateConfig(
           {
             sources: [
-              { id, name: DEFAULT_SOURCE_NAME, baseUrl: legacyUrl, akRef, skRef },
+              {
+                id,
+                name: DEFAULT_SOURCE_NAME,
+                baseUrl: legacyUrl,
+                akRef,
+                skRef,
+              },
             ],
             defaultSource: id,
             // 旧 URL 已进入 sources[]；清空它并打上标记，之后即使用户移除了这个
@@ -1181,7 +1199,8 @@ export function apply(ctx, config = {}) {
     for (const entry of raw) {
       if (!entry || typeof entry !== "object") continue;
       const id = typeof entry.id === "string" ? entry.id.trim() : "";
-      const sourceName = typeof entry.name === "string" ? entry.name.trim() : "";
+      const sourceName =
+        typeof entry.name === "string" ? entry.name.trim() : "";
       if (!id || !sourceName) continue;
       list.push({
         id,
@@ -1231,7 +1250,8 @@ export function apply(ctx, config = {}) {
       );
     if (key) {
       const found =
-        sources.find((s) => s.name === key) ?? sources.find((s) => s.id === key);
+        sources.find((s) => s.name === key) ??
+        sources.find((s) => s.id === key);
       if (found) return found;
       throw new Error(
         `Unknown JumpServer source ${JSON.stringify(key)}. Configured sources: ${names || "(none)"}. Call jumpserver_sources to list them.`,
@@ -1254,7 +1274,10 @@ export function apply(ctx, config = {}) {
   // 记住审批时解析出的源站。非对象（测试直接构造的空壳）时跳过绑定。
   function bindApproval(exec, src) {
     if (!exec || typeof exec !== "object" || !src) return;
-    approvalBindings.set(exec, { identity: sourceIdentity(src), name: src.name });
+    approvalBindings.set(exec, {
+      identity: sourceIdentity(src),
+      name: src.name,
+    });
   }
 
   // 写操作的源站解析：审批后到执行前默认源站可能被改掉（另一个设置页、另一次
@@ -1306,7 +1329,9 @@ export function apply(ctx, config = {}) {
         const src = isWrite
           ? resolveApprovedSource(args?.source, exec)
           : resolveSource(args?.source);
-        return sourceStore.run({ source: src }, () => options.execute(args, exec));
+        return sourceStore.run({ source: src }, () =>
+          options.execute(args, exec),
+        );
       },
     });
   }
@@ -1349,7 +1374,9 @@ export function apply(ctx, config = {}) {
       if (UUID_PATTERN.test(rawId)) {
         try {
           const rule = await sourceStore.run({ source: src }, () =>
-            api(`/api/v1/acls/command-filter-acls/${encodeURIComponent(rawId)}/`),
+            api(
+              `/api/v1/acls/command-filter-acls/${encodeURIComponent(rawId)}/`,
+            ),
           );
           currentAction = rule?.action?.value ?? rule?.action;
         } catch {
@@ -1478,7 +1505,7 @@ export function apply(ctx, config = {}) {
     defineTool({
       name: "jumpserver_sources",
       description:
-        "List the configured JumpServer sources (name, id, base URL, whether the AccessKey/SecretKey are configured, and which one is the default). Call this before passing a \"source\" argument to any other JumpServer tool. Read-only; never returns credentials.",
+        'List the configured JumpServer sources (name, id, base URL, whether the AccessKey/SecretKey are configured, and which one is the default). Call this before passing a "source" argument to any other JumpServer tool. Read-only; never returns credentials.',
       parameters: {},
       output: {
         schema: { type: "string" },
